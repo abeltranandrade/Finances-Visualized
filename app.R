@@ -3,21 +3,6 @@ library(shiny)
 library(shinydashboard)
 
 
-#OG testing before writing function
-incomeRow <- fluidRow(h3("Income"),
-                      p("Enter your income details:"),
-                      numericInput("income_amount", label = "Income Amount", value = 0),
-                      actionButton("income_submit", "Enter Income")
-)
-
-incomeColumn <- column(6,
-                       h3("Income"),
-                       p("Enter your income details:"),
-                       numericInput("income_amount", label = "Income Amount", value = 0),
-                       actionButton("income_submit", "Enter Income")
-)
-
-
 #' Create Input Unit
 #' @description This app needs to query different type of information to create its tools such as income, expenses, disposable income, debts etc they are all different data but all need a header title and a certain number of input fields of certain types. This function generalizes those "units". See wireframe for visual example
 #'
@@ -45,7 +30,7 @@ createInputUnit <- function(header, ..., button_label, button_id) {
 
 # Define UI
 ui <- dashboardPage(
-  dashboardHeader(title = "My Shiny App"),
+  dashboardHeader(title = "Finances Visualized"),
   dashboardSidebar(
     sidebarMenu(
       menuItem("Budget", tabName = "budget", icon = icon("usd")),
