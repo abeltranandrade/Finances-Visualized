@@ -2,7 +2,6 @@
 library(shiny)
 library(shinydashboard)
 
-
 #' Create Input Unit
 #' @description This app needs to query different type of information to create its tools such as income, expenses, disposable income, debts etc they are all different data but all need a header title and a certain number of input fields of certain types. This function generalizes those "units". See wireframe for visual example
 #'
@@ -10,7 +9,6 @@ library(shinydashboard)
 #' @param header General title for all the information needed in this unit
 #' @param button_label label on the submission button. Note this should be the second to last parameter
 #' @param button_id ID to call  the submitted information in this input field/s. Note this should be the last parameter
-#' @param list(label,id,type)) Specifies individual info for each input field desired in this unit. One required but can have multiple. Types posible "numeric" and "text"
 #'
 #' @return Final stuff
 # Function to create input fields that contain a header, paragraph, and variable number of input elements.
@@ -59,7 +57,6 @@ ui <- dashboardPage(
           )
         )
       ),
-
       # Timeline tab (placeholder content)
       tabItem(
         tabName = "timeline",
@@ -76,7 +73,31 @@ ui <- dashboardPage(
 )
 
 # Define server logic (not required for this example)
-server <- function(input, output) { }
+server <- function(input, output) {
+
+  #budget tab
+
+  # Reactive data frames to store income and expenses submitted
+  income <- reactiveVal(data.frame(monthly_amount = numeric()))
+  expenses <- reactiveVal(data.frame(title = character(), price = numeric()))
+
+  # update income data frame reactive when updated through income_submit button
+  observeEvent(input$income_submit, {
+    #format observed event result into our income format and bind it
+    new_income <- data.frame(monthly_amount = input$income_amount)
+    income(rbind(income(), new_income))
+  })
+
+  # update expense table reactive when updated through expense_submit button
+  observeEvent(input$expense_submit, {
+    #format observed event result into our expense format and bind it
+    new_expense <- data.frame(title = input$expense_title, price = input$expense_price)
+    expenses(rbind(expenses(), new_expense))
+  })
+
+
+
+  }
 
 # Run the application
 shinyApp(ui, server)
