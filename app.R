@@ -1,6 +1,8 @@
 # Load libraries
 library(shiny)
 library(shinydashboard)
+library(plotly)
+library(DT)
 
 #' Create Input Unit
 #' @description This app needs to query different type of information to create its tools such as income, expenses, disposable income, debts etc they are all different data but all need a header title and a certain number of input fields of certain types. This function generalizes those "units". See wireframe for visual example
@@ -53,7 +55,8 @@ ui <- dashboardPage(
                          list(label = "Expense Price", id = "expense_price", type = "numeric"),
                          button_label = "Submit Expense", button_id = "expense_submit")
             ),
-            column(6, h3("Column 2"))
+            column(6, plotlyOutput("pie_chart"),
+                   DTOutput("expenseTable"))
           )
         )
       ),
@@ -75,7 +78,7 @@ ui <- dashboardPage(
 # Define server logic (not required for this example)
 server <- function(input, output) {
 
-  #budget tab
+  ####budget tab
 
   # Reactive data frames to store income and expenses submitted
   income <- reactiveVal(data.frame(monthly_amount = numeric()))
@@ -95,7 +98,32 @@ server <- function(input, output) {
     expenses(rbind(expenses(), new_expense))
   })
 
+  output$pie_chart <- renderPlotly({
+    expenses_df <- expenses()
 
+    #calculate disposable income and create a budget
+    last_income <- tail(income(), n = 1)$monthly_amount
+    budget_spending <- sum(expenses()$price)
+    remaining <- last_income - budget_spending
+    budget <- rbind(expenses_df, data.frame(title = "Money Remaining", price = remaining))
+    print("this is budget")
+    print(budget)
+
+    #create pie chart
+    if (nrow(budget) > 0) {
+      pie_chart <- plot_ly(budget, labels = ~title, values = ~price, type = "pie")
+      pie_chart <- pie_chart %>% layout(title = "Budget of Needs")
+      pie_chart
+    }
+  })
+
+  output$expenseTable <- renderDT({
+    indexes <-order(expenses()$price, decreasing = TRUE)
+    sortedExpenses <- expenses()[indexes, ]
+    datatable(sortedExpenses, options = list(pageLength = 10), class = 'cell-border stripe')
+  })
+
+### next tab
 
   }
 
