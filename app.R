@@ -80,8 +80,8 @@ server <- function(input, output) {
 
   ####budget tab
 
-  # Reactive data frames to store income and expenses submitted
-  income <- reactiveVal(data.frame(monthly_amount = numeric()))
+  # Reactive data frames to store income and expenses submitted #default income to 0 for pie chart error messaging
+  income <- reactiveVal(data.frame(monthly_amount = 0))
   expenses <- reactiveVal(data.frame(title = character(), price = numeric()))
 
   # update income data frame reactive when updated through income_submit button
@@ -98,19 +98,6 @@ server <- function(input, output) {
     expenses(rbind(expenses(), new_expense))
   })
 
-  # attempt to not make the error of the plot to show before they input data. Didnt seem to work
-  # observe({
-  #   if (!is.null(income()) && nrow(income()) > 0 ) {
-  #     shinyjs::enable("pie_chart")  # Enable the pie chart when input is provided
-  #     print("I get onto if")
-  #     print(nrow(income()))
-  #   } else {
-  #     print("I get onto else")
-  #     print(nrow(income()))
-  #     shinyjs::disable("pie_chart")  # Disable the pie chart if input is not provided
-  #   }
-  # })
-
   output$pie_chart <- renderPlotly({
     #data
     expenses_df <- expenses()
@@ -125,7 +112,7 @@ server <- function(input, output) {
 
     #create pie chart
     if (nrow(budget) > 0) {
-      #try catch to attempt to avoid error being displayed. Not working?
+      #avoid error being displayed. Might not be working but leaving for extra security
       tryCatch({
         pie_chart <- plot_ly(budget, labels = ~title, values = ~price, type = "pie")
         pie_chart <- pie_chart %>% layout(title = "Budget of Needs")
