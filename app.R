@@ -3,7 +3,7 @@ library(shiny)
 library(shinydashboard)
 library(plotly)
 library(DT)
-
+library(shinyjs)
 #' Create Input Unit
 #' @description This app needs to query different type of information to create its tools such as income, expenses, disposable income, debts etc they are all different data but all need a header title and a certain number of input fields of certain types. This function generalizes those "units". See wireframe for visual example
 #'
@@ -55,7 +55,7 @@ ui <- dashboardPage(
                          list(label = "Expense Price", id = "expense_price", type = "numeric"),
                          button_label = "Submit Expense", button_id = "expense_submit")
             ),
-            column(6, fluidRow(plotlyOutput("pie_chart"), style = "padding-bottom: 20px; padding-top: 30px;"),   # Adjust the padding as needed
+            column(6, fluidRow(plotlyOutput("pie_chart"), style = "padding-bottom: 20px; padding-top: 30px"),   # Adjust the padding as needed
                    fluidRow(DTOutput("expenseTable")))
           )
         )
@@ -98,7 +98,21 @@ server <- function(input, output) {
     expenses(rbind(expenses(), new_expense))
   })
 
+  # attempt to not make the error of the plot to show before they input data. Didnt seem to work
+  # observe({
+  #   if (!is.null(income()) && nrow(income()) > 0 ) {
+  #     shinyjs::enable("pie_chart")  # Enable the pie chart when input is provided
+  #     print("I get onto if")
+  #     print(nrow(income()))
+  #   } else {
+  #     print("I get onto else")
+  #     print(nrow(income()))
+  #     shinyjs::disable("pie_chart")  # Disable the pie chart if input is not provided
+  #   }
+  # })
+
   output$pie_chart <- renderPlotly({
+    #data
     expenses_df <- expenses()
 
     #calculate disposable income and create a budget
@@ -111,9 +125,16 @@ server <- function(input, output) {
 
     #create pie chart
     if (nrow(budget) > 0) {
-      pie_chart <- plot_ly(budget, labels = ~title, values = ~price, type = "pie")
-      pie_chart <- pie_chart %>% layout(title = "Budget of Needs")
-      pie_chart
+      #try catch to attempt to avoid error being displayed. Not working?
+      tryCatch({
+        pie_chart <- plot_ly(budget, labels = ~title, values = ~price, type = "pie")
+        pie_chart <- pie_chart %>% layout(title = "Budget of Needs")
+        pie_chart
+      }, error = function(e) {
+        cat("Please input income and expenses information to create a pie chart", conditionMessage(e), "\n")
+        #makes the plot not display?
+        return(NULL)
+      })
     }
   })
 
