@@ -45,7 +45,7 @@ ui <- dashboardPage(
         tabName = "budget",
         fluidPage(
           fluidRow(
-            column(6,
+            column(4, align = "center",
                    createInputUnit("Income", #Input Unit Income
                                     list(label = "Income Amount", id = "income_amount", type = "numeric"),
                                    button_label = "Submit Income", button_id = "income_submit")
@@ -55,8 +55,8 @@ ui <- dashboardPage(
                          list(label = "Expense Price", id = "expense_price", type = "numeric"),
                          button_label = "Submit Expense", button_id = "expense_submit")
             ),
-            column(6, plotlyOutput("pie_chart"),
-                   DTOutput("expenseTable"))
+            column(6, fluidRow(plotlyOutput("pie_chart"), style = "padding-bottom: 20px; padding-top: 30px;"),   # Adjust the padding as needed
+                   fluidRow(DTOutput("expenseTable")))
           )
         )
       ),
