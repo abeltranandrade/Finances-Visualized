@@ -63,13 +63,29 @@ ui <- dashboardPage(
       # Timeline tab (placeholder content)
       tabItem(
         tabName = "timeline",
+        box(
+          title = "Customized Value Box",
+          status = "primary",
+          solidHeader = TRUE,
+          width = 4,
+          height = 350,
+          collapsible = TRUE,
+          valueBoxOutput("custom_value_box")
+        ),
+        br(),
+        valueBoxOutput("mean_sqft"),
         h2("Timeline Content Goes Here")
       ),
 
       # Dates tab (placeholder content)
       tabItem(
         tabName = "dates",
-        h2("Dates Content Goes Here")
+        h2("Dates Content Goes Here"),
+        tabsetPanel(
+          tabPanel("Tab 1", value = "tab1"),
+          tabPanel("Tab 2", value = "tab2"),
+          uiOutput("dynamic_tab")
+        )
       )
     )
   )
@@ -132,7 +148,38 @@ server <- function(input, output) {
   })
 
 ### next tab
+  output$custom_value_box <- renderValueBox({
+    valueBox(
+      value = 123,
+      subtitle = "Subtitle",
+      icon = icon("star"),
+      color = "purple",
+      href = "#",  # Add a hyperlink if needed
+      width = "100%"
+    )
+  })
 
+
+  output$mean_sqft = renderValueBox({
+    valueBox(
+      paste0("$" ),
+      "Mean property size (in sq. ft.)"
+    )
+  })
+
+  ## other
+  tab_content <- list(
+    tab1 = textInput("data_tab1", "Enter data for Tab 1"),
+    tab2 = textInput("data_tab2", "Enter data for Tab 2")
+    # Add more tabs and corresponding widgets as needed
+  )
+
+  # Render dynamic tab content
+  output$dynamic_tab <- renderUI({
+    selected_tab <- input$dynamic_tab
+    widget <- tab_content[[selected_tab]]
+    widget
+  })
   }
 
 # Run the application
