@@ -4,6 +4,7 @@ library(shinydashboard)
 library(plotly)
 library(DT)
 library(shinyjs)
+library(dplyr)
 #' Create Input Unit
 #' @description This app needs to query different type of information to create its tools such as income, expenses, disposable income, debts etc they are all different data but all need a header title and a certain number of input fields of certain types. This function generalizes those "units". See wireframe for visual example
 #'
@@ -27,23 +28,137 @@ createInputUnit <- function(header, ..., button_label, button_id) {
   )
 }
 
+new_createTimeline <-  function(debt_accounts, disposable_income) {
+  createCorrespondingColumns <- function(debt_title){
+    lapply(debt_title, function (debt){
+    debt_columns <- paste0(debt, c("_Original_Balance", "_Interest_Added", "_New_Balance"))
+    })
+  }
+  #data looks different for both cases
+  calculateOriginalBalance <- function(month ,data, results, firstRow) {
+    if(firstRow == TRUE){
+      for( debt in 1:nrow(data)){
+        current <- data[debt,]
+        results[month, paste0(current$title,"_Original_Balance")] <- current$balance
+      }
+    }else{
+      # Put the past month's same title new balance onto the next month original balance
+      results[month, paste0(data$title,"_Original_Balance")] <- results[month-1, paste0(data$title,"_New_Balance")]
+    }
+    return(results)
+  }
+
+
+  calculateNewBalance <- function(month, disposable, debt_df, result_df, tackle, firstRow = FALSE) {
+
+    for( debt in 1:nrow(debt_df)){
+      current_debt <- debt_df[debt,]
+      monthly_apr <- (current_debt$APR/100) /12.0
+
+      # if first row, previous balance is the same row's original balance, while other rows is the previous row new balance
+      previous_balance <- switch(firstRow,
+                                 "1" = result_df[ month, paste0(current_debt$title,"_Original_Balance")],
+                                 "0" = result_df[ month-1, paste0(current_debt$title,"_New_Balance")])
+
+      # If you have to tackle with disposable income or not
+      if(tackle == TRUE){
+        temp_balance <- previous_balance - current_debt$minimum - disposable
+      }else{
+        temp_balance <- previous_balance - current_debt$minimum
+      }
+      print("Temp Balance is")
+      print(temp_balance)
+      #calculating this months interest added
+      interest <- temp_balance * monthly_apr
+      new_balance <- temp_balance + interest
+
+      #update the new values to the rows
+      result_df[month, paste0(current_debt$title,"_Interest_Added")] <- interest
+      result_df[month, paste0(current_debt$title,"_New_Balance")] <- new_balance
+    }
+    return(result_df)
+  }
+
+  min_clear <- 0
+  disposable <- tail(disposable_income, n = 1)$amount
+  month_index <- 1
+  total_balance <- 1
+  first_row <- TRUE
+  #the lowest index of a debt that still has a balance
+  debt_index <- 1
+
+  default_columns <- c("Month", "Disposable")
+  # creates vector with the modifiable columns for each debt
+  Debt_columns <- createCorrespondingColumns(debt_accounts$title)
+  varColumnTitles <- unlist(Debt_columns)
+  columnTitles <- c(default_columns, varColumnTitles)
+  # create result dataframe
+  timeline_results <- data.frame(setNames(replicate(length(columnTitles), numeric()), columnTitles))
+
+  if(first_row == TRUE){
+    timeline_results[month_index, 'Month'] <- month_index
+    timeline_results[month_index, 'Disposable'] <- disposable
+    tackle_money <- disposable
+
+    while(tackle_money > 0){
+      timeline_results2 <- calculateOriginalBalance(month_index, debt_accounts, timeline_results, firstRow = TRUE )
+      print("I want to calculate new balance")
+      timeline_r3 <- calculateNewBalance(month_index, disposable, debt_accounts,
+                                         timeline_results2, tackle = TRUE, firstRow = 1)
+      tackle_money <- tackle_money - disposable
+      print("timeline result2")
+      print(timeline_results2)
+      print("timeline result3")
+      print(timeline_r3)
+    }
+
+    first_row <- FALSE
+    #print(timeline_results)
+  }
+
+}
+
 createTimeline <- function(debt_accounts, disposable_income) {
 
           createSuffixColumns <- function(titles, suffix){
-    column_name <- paste(titles, suffix, sep = "_")
+            # In this one I am storing all of them in the vector column_name so the whole result is on one vector not a vector with multiple vectors inside (if you were to return)
+            column_name <- paste(titles, suffix, sep = "_")
           }
 
+          createCorrespondingColumns <- function(debt_title){
+            debt_columns <- paste0(debt_title, c("Original_Balance", "Interest_Added", "New_Balance"), sep = "_")
+
+          }
+
+          update_cell <- function(input, result_data, month, new_balance) {
+            switch(TRUE,
+                   grepl("New_Balance$", input) ~ {
+                     result_data[month, input] <- new_balance
+                     # Additional apple processing code here
+                   },
+                   grepl("Added_Interest$", input) ~ {
+                     result_data[month, input] <- new_balance
+                     # Additional apple processing code here
+                   },
+                   TRUE ~ {
+                     print("Unknown input")
+                     # Code to handle unknown input
+                   }
+            )
+          }
           #extremely similar but one takes one more variable disposable
           payingMinimum <- function(month, result_data, column,previous_balance, loan_info){
             monthly_apr <- (loan_info$APR/100) /12.0
             temp_balance <- previous_balance - loan_info$minimum
             interest <- temp_balance * monthly_apr
             new_balance <- temp_balance + interest
-            switch (column,
-                    endsWith("New_Balance"), result_data[month, column] <- new_balance,
-                    endsWith("Added_Interest"), result_data[month, column] <- interest
+            update_cell(column, result_data, month, new_balance)
 
-            )
+            # switch (column,
+            #         endsWith("New_Balance"), result_data[month, column] <- new_balance,
+            #         endsWith("Added_Interest"), result_data[month, column] <- interest
+            #
+            # )
           }
 
           #Replaces the added interest and new balance column for a certain month (row) for a certain loan info
@@ -54,6 +169,8 @@ createTimeline <- function(debt_accounts, disposable_income) {
             #calculating this months interest added
             interest <- temp_balance * monthly_apr
             new_balance <- temp_balance + interest
+            print("column is")
+            print(column)
             switch (column,
               endsWith("New_Balance"), result_data[month, column] <- new_balance,
               endsWith("Added_Interest"),  result_data[month, column] <- interest
@@ -66,9 +183,10 @@ createTimeline <- function(debt_accounts, disposable_income) {
 
           min_clear <- 0
           disposable <- tail(disposable_income, n = 1)$amount
-          month_index <- 0
+          month_index <- 1
           debt_index <- 1
-          total_balance <- 100
+          total_balance <- 1
+          first_row <- TRUE
 
           default_columns <- c("Month", "Disposable")
 
@@ -76,6 +194,12 @@ createTimeline <- function(debt_accounts, disposable_income) {
           og_balance_columns <- createSuffixColumns(debt_accounts$title, "Original_Balance")
           new_balance_columns <- createSuffixColumns(debt_accounts$title, "New_Balance")
 
+
+          Debt_columns <- createCorrespondingColumns(debt_accounts$title)
+
+          print("This is debt_columns")
+          print(Debt_columns)
+          print(unlist(Debt_columns))
           columnTitles <- c(default_columns, interest_columns, og_balance_columns, new_balance_columns)
           timeline_results <- data.frame(setNames(replicate(length(columnTitles), numeric()), columnTitles))
 
@@ -83,74 +207,83 @@ createTimeline <- function(debt_accounts, disposable_income) {
 
 
           # OMG I could do it by month and disposable income being used up per row. Do like while total balance is not 0
-
-          while(total_balance != 0){
-              money <- disposable + min_clear
-              current_debt <- debt_accounts[debt_index, ]
-
-              #create the row of the current month
-              timeline_results[month_index, "month"] <- month_index
-
-              # if you can pay multiple balances this month
-              if(current_debt$balance < money ){
-                payingdownbalance(month_index, timeline_results, startWith(interest_columns, current_debt$title),
-                                  timeline_results[month_index-1,], money, current_debt$minimum, current_debt$APR)
-              }else{# if this money only helps you put down the total principle
-                payingdownbalance(month_index, timeline_results, startWith(interest_columns, current_debt$title),
-                                  timeline_results[month_index-1,], money, current_debt$minimum, current_debt$APR)
-              }
+          ############# Whole different idea #2
+          # while(total_balance != 0){
+          #     money <- disposable + min_clear
+          #     current_debt <- debt_accounts[debt_index, ]
+          #
+          #     #create the row of the current month
+          #     timeline_results[month_index, "month"] <- month_index
+          #
+          #     if(month_index == 1){
+          #       payingDownBalance(month_index, timeline_results, subset(columnTitles, select = starts_with(interest_columns, current_debt$title)),
+          #                         timeline_results[month_index-1,], money, current_debt$minimum, current_debt$APR)
+          #       print("The one paying down balance does")
+          #       print(timeline_results)
+          #
+          #     }
+          #     total_balance <- total_balance - 1
+          #
+              # if you can pay multiple balances this month (This below was already commented)
+              # if(current_debt$balance < money ){
+              #   payingdownbalance(month_index, timeline_results, startWith(interest_columns, current_debt$title),
+              #                     timeline_results[month_index-1,], money, current_debt$minimum, current_debt$APR)
+              # }else{# if this money only helps you put down the total principle
+              #   payingdownbalance(month_index, timeline_results, startWith(interest_columns, current_debt$title),
+              #                     timeline_results[month_index-1,], money, current_debt$minimum, current_debt$APR)
+              # }
 
               # maybe instead of this if statement I ould have paying down return the residual and if there exists a residual keep going down on the debts
-          }
+          #}
 
-          ################################# whole different ideas
+          ################################# whole different ideas #1
           # go through tackling every debt
-          for (debt in seq_len(nrow(debt_accounts))) { #looking at all the debts
-
-
-            # if we wiped the debt already with the last iteration disposible income, skip to next debt
-            if(debt_accounts[debt, ]$balance == 0){
-              print("I get here sometime")
-              next
-            }
-
-            # Decide which debts could use the disposable income and which will only be paid minimum
-            if(debt_accounts[debt, ]$balance < disposable_income){
-              # starting values that will be wiped out this month
-              largest <- debt_accounts[debt, ]$balance
-              last_num <- debt
-              # Find the index of the debt we cannot knock out with the current disposable income, make the og dataset get 0 balances (actually I think that changing the balance is bad)
-              range <- lapply(debt_accounts[debt:nrow(debt_accounts)], function(index){
-                largest <- largest + index$balance
-                if(largest > disposable_income){
-                  return(last_num)
-                }else{
-                  #change the value in the dataset to show that this index of debt has been wiped out
-                  debt_accounts[debt, ]$balance <- 0
-                  debt_accounts[last_num, ]$balance <- 0
-                  last_num <- last_num +1
-                }
-              })
-
-              debt_tackling <- debt_accounts[debt:range]
-              debt_growing <- debt_accounts[range+1:nrow(debt_accounts),]
-            }else{
-              # separating vectors that we are tacking vs that being paid with minimums and growing interest
-              debt_tackling <- debt_accounts[debt, ]
-              debt_growing <- debt_accounts[debt+1:nrow(debt_accounts),]
-            }
-
-            month_counter <- month_counter +1
-            print(paste("This is debt tackling during month ", month_counter))
-            print(debt_tackling)
-            print(paste("This is debt growing during month ", month_counter))
-            print(debt_growing)
-            # While we are still dealing with the same debt
-            # while(debt_accounts[debt, ]$balance > disposable_income){
-            # }
-            # If we are starting at the first mont
-
-          }
+          # for (debt in seq_len(nrow(debt_accounts))) { #looking at all the debts
+          #
+          #
+          #   # if we wiped the debt already with the last iteration disposible income, skip to next debt
+          #   if(debt_accounts[debt, ]$balance == 0){
+          #     print("I get here sometime")
+          #     next
+          #   }
+          #
+          #   # Decide which debts could use the disposable income and which will only be paid minimum
+          #   if(debt_accounts[debt, ]$balance < disposable_income){
+          #     # starting values that will be wiped out this month
+          #     largest <- debt_accounts[debt, ]$balance
+          #     last_num <- debt
+          #     # Find the index of the debt we cannot knock out with the current disposable income, make the og dataset get 0 balances (actually I think that changing the balance is bad)
+          #     range <- lapply(debt_accounts[debt:nrow(debt_accounts)], function(index){
+          #       largest <- largest + index$balance
+          #       if(largest > disposable_income){
+          #         return(last_num)
+          #       }else{
+          #         #change the value in the dataset to show that this index of debt has been wiped out
+          #         debt_accounts[debt, ]$balance <- 0
+          #         debt_accounts[last_num, ]$balance <- 0
+          #         last_num <- last_num +1
+          #       }
+          #     })
+          #
+          #     debt_tackling <- debt_accounts[debt:range]
+          #     debt_growing <- debt_accounts[range+1:nrow(debt_accounts),]
+          #   }else{
+          #     # separating vectors that we are tacking vs that being paid with minimums and growing interest
+          #     debt_tackling <- debt_accounts[debt, ]
+          #     debt_growing <- debt_accounts[debt+1:nrow(debt_accounts),]
+          #   }
+          #
+          #   month_counter <- month_counter +1
+          #   print(paste("This is debt tackling during month ", month_counter))
+          #   print(debt_tackling)
+          #   print(paste("This is debt growing during month ", month_counter))
+          #   print(debt_growing)
+          #   # While we are still dealing with the same debt
+          #   # while(debt_accounts[debt, ]$balance > disposable_income){
+          #   # }
+          #   # If we are starting at the first mont
+          #
+          # }
 
 }
 
@@ -353,7 +486,7 @@ server <- function(input, output) {
   disposable <- reactiveVal(data.frame(amount =0))
   debts <- reactiveVal(data.frame(title= character(), balance = numeric(), APR = numeric(), minimum = numeric()))
 
-  observeEvent(input$income_submit, {
+  observeEvent(input$Disposable_submit, {
     #format observed event result into our income format and bind it
     new_disposable <- data.frame(amount = input$disposable_income)
     disposable(rbind(disposable(), new_disposable))
@@ -378,7 +511,8 @@ server <- function(input, output) {
 
 
     print("This is the function Timeline")
-    print(createTimeline(debt_info, dis_df))
+    #print(createTimeline(debt_info, dis_df))
+    print(new_createTimeline(debt_info, dis_df))
 
   })
 
@@ -424,3 +558,19 @@ server <- function(input, output) {
 
 # Run the application
 shinyApp(ui, server)
+
+
+
+
+
+# # Should be the same as the OG but with a cleaner switch have not tested
+# calculateOriginalBalance2 <- function(month ,data, debt_index, results, firstRow) {
+#   for( debt in debt_index:nrow(data)){
+#     current <- data[debt,]
+#     switch (firstRow,
+#             1 = results[month, paste0(data[debt,]$title,"_Original_Balance")] <- current$balance,
+#             0 = results[month, paste0(data[debt,]$title,"_Original_Balance")] <- results[month-1, paste0(data$title,"_New_Balance")]
+#     )
+#   }
+#   return(results)
+# }
