@@ -118,7 +118,6 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
 
     #calculate original balances once
     timeline_results2 <- calculateOriginalBalance(month_index, debt_accounts, timeline_results, firstRow = TRUE )
-    print("Not its not hahaha I am on line 120")
 
     # Go through each debt
     for(i in 1:nrow(debt_accounts)){
@@ -136,6 +135,8 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
         print(timeline_results2)
         print("tackle money is ")
         print(tackle_money)
+        #go to next debt since we already calculated new balance here
+        i <- i + 1
       }
       # For all the other i debts, calculate new balance only through minimum
       new_calculations <- calculateNewBalance(month_index, tackle_money, debt_accounts, i,
