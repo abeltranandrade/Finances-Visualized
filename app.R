@@ -52,13 +52,21 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
 
       # select the debt we are creating a new balance for
       current_debt <- debt_df[debt_index,]
+
       #calculate monthly APR
       monthly_apr <- (current_debt$APR/100) /12.0
       # maximum we have to pay down the loan this month
       disposable <- disposable + current_debt$minimum
 
+      # What is the most recient balance being held on a certain debt
+      # if first row, previous balance is the same row's original balance, while other rows is the previous row new balance
+      current_balance <- switch(firstRow,
+                                 "1" = current_debt$balance,
+                                 "0" = result_df[ month-1, paste0(current_debt$title,"_New_Balance")])
+
+      # TODO: THis is wrong! bc it uses the current balance of the OG debt not the one changing in each row. Gotta do the division earlier
       # if we can wipe out the debt this month (less balance on card than money)
-      if(disposable > current_debt$balance){
+      if(disposable > current_balance){
         #update the new values to the rows
         result_df[month, paste0(current_debt$title,"_Interest_Added")] <- 0
         result_df[month, paste0(current_debt$title,"_New_Balance")] <- 0
@@ -67,16 +75,15 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
         return(list(dataframe = result_df, residual = residual))
       }
       else{
-      # if first row, previous balance is the same row's original balance, while other rows is the previous row new balance
-      previous_balance <- switch(firstRow,
-                                 "1" = result_df[ month, paste0(current_debt$title,"_Original_Balance")],
-                                 "0" = result_df[ month-1, paste0(current_debt$title,"_New_Balance")])
+      # previous_balance <- switch(firstRow,
+      #                            "1" = result_df[ month, paste0(current_debt$title,"_Original_Balance")],
+      #                            "0" = result_df[ month-1, paste0(current_debt$title,"_New_Balance")])
 
       # If you have to tackle with disposable income or not
       if(tackle == TRUE){
-        temp_balance <- previous_balance - disposable
+        temp_balance <- current_balance - disposable
       }else{
-        temp_balance <- previous_balance - current_debt$minimum
+        temp_balance <- current_balance - current_debt$minimum
       }
       print("Temp Balance is")
       print(temp_balance)
