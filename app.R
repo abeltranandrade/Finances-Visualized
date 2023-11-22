@@ -91,7 +91,7 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
       print("result_df inside new balance is ")
       print(result_df)
       #If we do not tackle the debt in this one, we will have to return the dataframe and say that there is no more disposable income this month
-      return(list(dataframe = result_df, residual = residual))
+      return(list(dataframe = result_df, residual = 0))
       }
     }
 
@@ -131,25 +131,33 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
         timeline_results2 <- new_calculations$dataframe
         # residual from this debt goes to tackle the next debt
         tackle_money <- new_calculations$residual
-        print(paste("timeline result2 for sequence while we still have money ", i))
+        print(paste("timeline result2  for sequence while we still have money ", i))
         print(timeline_results2)
         print("tackle money is ")
         print(tackle_money)
         #go to next debt since we already calculated new balance here
         i <- i + 1
       }
+      if(i == nrow(debt_accounts)+1)
+      print(paste("I am outside the while loop on index ", i))
       # For all the other i debts, calculate new balance only through minimum
       new_calculations <- calculateNewBalance(month_index, tackle_money, debt_accounts, i,
                                                 timeline_results2, tackle = FALSE, firstRow = 1)
         #updated dataframe with new calculations
-        timeline_results2 <- new_calculations[1]
+        timeline_results2 <- new_calculations$dataframe
+        print(paste("timeline result2 outside we still have money ", i))
+        print(timeline_results2)
+        print(paste(" I get to the end of the end of the for loop in loop ", i))
     }
     #I would need a new iteration of the month to happen after this
     month_index <- month_index +1
     # since we updated month(finished a row), we have to refresh the tackle_money
     tackle_money <- disposable
     #Finished with the first row
+    print("I get to where I change it")
     first_row <- FALSE
+    print("first Row has been changed it is now")
+    print(first_row)
   }
   # while there are still balances on a loan (each iteration is a month)
   while(total_balance > 0){
