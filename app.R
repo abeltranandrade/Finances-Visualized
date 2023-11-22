@@ -119,54 +119,59 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
     #calculate original balances once
     timeline_results2 <- calculateOriginalBalance(month_index, debt_accounts, timeline_results, firstRow = TRUE )
 
+    #while we still have disposible money this month
+    while(tackle_money > 0){
     # Go through each debt
-    for(i in 1:nrow(debt_accounts)){
-    # while there is still extra money to tackle, use tackle = TRUE
-      while(tackle_money > 0){
-        new_calculations <- calculateNewBalance(month_index, tackle_money, debt_accounts, i,
-                                           timeline_results2, tackle = TRUE, firstRow = 1)
-        print("I passed the new balance")
-        print(new_calculations)
-        #updated dataframe with new calculations
-        timeline_results2 <- new_calculations$dataframe
-        # residual from this debt goes to tackle the next debt
-        tackle_money <- new_calculations$residual
-        print(paste("timeline result2  for sequence while we still have money ", i))
-        print(timeline_results2)
-        print("tackle money is ")
-        print(tackle_money)
-        #go to next debt since we already calculated new balance here
-        i <- i + 1
+      for(i in 1:nrow(debt_accounts)){
+      # while there is still extra money to tackle, use tackle = TRUE
+          new_calculations <- calculateNewBalance(month_index, tackle_money, debt_accounts, i,
+                                             timeline_results2, tackle = TRUE, firstRow = 1)
+          print("I passed the new balance")
+          print(new_calculations)
+          #updated dataframe with new calculations
+          timeline_results2 <- new_calculations$dataframe
+          # residual from this debt goes to tackle the next debt
+          tackle_money <- new_calculations$residual
+          print(paste("timeline result2  for sequence while we still have money ", i))
+          print(timeline_results2)
+          print("tackle money is ")
+          print(tackle_money)
       }
-      if(i == nrow(debt_accounts)+1)
-      print(paste("I am outside the while loop on index ", i))
-      # For all the other i debts, calculate new balance only through minimum
-      new_calculations <- calculateNewBalance(month_index, tackle_money, debt_accounts, i,
+    }
+    # if there are still un-updated, untackleable debts to calculate in first month
+    if(i < nrow(debt_accounts)){
+      # : is inclusive so add an index
+      untouched = i + 1
+      for(j in untouched:nrow(debt_accounts)){
+        print(paste("I am outside the while loop on index ", j))
+        # For all the other i debts, calculate new balance only through minimum
+        new_calculations <- calculateNewBalance(month_index, tackle_money, debt_accounts, j,
                                                 timeline_results2, tackle = FALSE, firstRow = 1)
         #updated dataframe with new calculations
         timeline_results2 <- new_calculations$dataframe
-        print(paste("timeline result2 outside we still have money ", i))
+        print(paste("timeline result2 outside we still have money ", j))
         print(timeline_results2)
-        print(paste(" I get to the end of the end of the for loop in loop ", i))
+        print(paste(" I get to the end of the end of the for loop in loop ", j))
+      }
     }
     #I would need a new iteration of the month to happen after this
     month_index <- month_index +1
     # since we updated month(finished a row), we have to refresh the tackle_money
     tackle_money <- disposable
     #Finished with the first row
-    print("I get to where I change it")
     first_row <- FALSE
-    print("first Row has been changed it is now")
-    print(first_row)
+
   }
   # while there are still balances on a loan (each iteration is a month)
   while(total_balance > 0){
     # create default columns
-    timeline_results[month_index, 'Month'] <- month_index
-    timeline_results[month_index, 'Disposable'] <- disposable
+    timeline_results2[month_index, 'Month'] <- month_index
+    timeline_results2[month_index, 'Disposable'] <- disposable
     #generate next row of original balances
-    timeline_results2 <- calculateOriginalBalance(month_index, debt_accounts, timeline_results, firstRow = FALSE )
+    timeline_results2 <- calculateOriginalBalance(month_index, debt_accounts, timeline_results2, firstRow = FALSE )
 
+    print("This is timeline result 2 after adding next month balances are !!!")
+    print(timeline_results2)
     # Create function that if original balance is 0, everything should be zero automatically and could be skipped. Would need to maybe return the debt index as well
 
     # go through each loan and calculate its new balance this month
