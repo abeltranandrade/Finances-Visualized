@@ -66,11 +66,7 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
                                  "1" = current_debt$balance,
                                  "0" = result_df[ month-1, paste0(current_debt$title,"_New_Balance")])
 
-      # TODO: THis is wrong! bc it uses the current balance of the OG debt not the one changing in each row. Gotta do the division earlier
       # if we can wipe out the debt this month (less balance on card than money)
-      print("current balance for current debt")
-      print(current_debt)
-      print(current_balance)
       if(disposable > current_balance){
         #update the new values to the rows
         result_df[month, paste0(current_debt$title,"_Interest_Added")] <- 0
@@ -80,9 +76,6 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
         return(list(dataframe = result_df, residual = residual))
       }
       else{
-      # previous_balance <- switch(firstRow,
-      #                            "1" = result_df[ month, paste0(current_debt$title,"_Original_Balance")],
-      #                            "0" = result_df[ month-1, paste0(current_debt$title,"_New_Balance")])
 
       # If you have to tackle with disposable income or not
       if(tackle == TRUE){
@@ -105,7 +98,19 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
       #If we do not tackle the debt in this one, we will have to return the dataframe and say that there is no more disposable income this month
       return(list(dataframe = result_df, residual = 0))
       }
-    }
+  }
+
+  findNewBalance <- function(row) {
+    # identify the new balance column inded
+    new_balance_columns <- grep("New_Balance$", names(row), value = TRUE)
+
+    print("columns are")
+    print(new_balance_columns)
+    # Sum the values in the selected columns for the current row
+    sum_values <- sum(row[new_balance_columns])
+
+    return(sum_values)
+  }
 
   min_clear <- 0
   disposable <- tail(disposable_income, n = 1)$amount
@@ -227,8 +232,15 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
     tackle_money <- disposable
 
     # TODO: calculate the total balance from timeline results tail and the new balance columns
-    total_balance <- 0
-    print(paste("I will end here on the first row for everything changing balance to ", total_balance))
+    #total_balance <- 0
+    #print(paste("I will end here on the first row for everything changing balance to ", total_balance))
+    latest_results <- tail(timeline_results2 , n = 1)
+    print("latest results are")
+    print(latest_results)
+    total_balance <- findNewBalance(latest_results)
+    print("Total Balance Now is")
+    print(total_balance)
+
   }
 
 }
