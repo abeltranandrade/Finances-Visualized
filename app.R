@@ -50,15 +50,14 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
 
   calculateNewBalance <- function(month, disposable, debt_df, debt_index, result_df, tackle, firstRow) {
 
+      print(paste("disposable for month ", month))
+      print(disposable)
       # select the debt we are creating a new balance for
       current_debt <- debt_df[debt_index,]
 
       #calculate monthly APR
       monthly_apr <- (current_debt$APR/100) /12.0
-      # maximum we have to pay down the loan this month
-      disposable <- disposable + current_debt$minimum
-      print("firstRow is")
-      print(firstRow)
+
 
       # What is the most recient balance being held on a certain debt
       # if first row, previous balance is the same row's original balance, while other rows is the previous row new balance
@@ -66,17 +65,29 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
                                  "1" = current_debt$balance,
                                  "0" = result_df[ month-1, paste0(current_debt$title,"_New_Balance")])
 
+      print("the current balance before minimum is ")
+      print(current_balance)
+      # take away the minimum payment which we always have budgetted
+      current_balance <- current_balance - current_debt$minimum
+
       # if we can wipe out the debt this month (less balance on card than money)
-      if(disposable > current_balance){
+      if(disposable > current_balance || current_balance < 0 ){
+        # covering case that current balance goes negative given the minimum
+        if(current_balance < 0){current_balance <- 0}
+        print("I get inside the if statement. Disposable is larger than")
         #update the new values to the rows
         result_df[month, paste0(current_debt$title,"_Interest_Added")] <- 0
         result_df[month, paste0(current_debt$title,"_New_Balance")] <- 0
-        residual <-  disposable - current_debt$balance
+        # changing this to current_balance made it start increasing like crazy. Works with current_debt$balance
+        print(paste("Disposable is ", disposable, " and current balance is", current_balance, " Then subtracted its ", disposable - current_balance))
+        residual <-  disposable - current_balance
+        print(paste("residual for month ", month))
+        print(residual)
         # When we make the for loop in the outside to get to choose which ones to pay down and which not to we will have to return here
         return(list(dataframe = result_df, residual = residual))
       }
       else{
-
+      print("I get in the else statement")
       # If you have to tackle with disposable income or not
       if(tackle == TRUE){
         temp_balance <- current_balance - disposable
@@ -181,6 +192,10 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
   }
   # while there are still balances on a loan (each iteration is a month)
   while(total_balance > 0){
+    print("##################################")
+    print("##################################")
+    print(paste("This is the start of the new month ", month_index))
+    print(paste("This is the disposable here ", disposable))
     #cut part for default and original to copy
     #####
     # create default columns
@@ -200,7 +215,7 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
         print(paste("Im above calculating New Balances for index ", x))
           new_calculations <- calculateNewBalance(month_index, tackle_money, debt_accounts, x,
                                                   timeline_results2, tackle = TRUE, firstRow = "0")
-          print(" I was able to calculate")
+          print(" the one on top are from new calculations")
           #updated dataframe with new calculations
           timeline_results2 <- new_calculations$dataframe
           # residual from this debt goes to tackle the next debt
@@ -208,6 +223,8 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
           print(paste("row two timeline results inside the if statement for ", x))
           print(timeline_results2)
     }
+      # break if you have disposable income after going through each debt new balance
+      if(x == nrow(debt_accounts) && tackle_money > 0){break}
     }
     # If there are more debts to process paying the minimums
     if(x < nrow(debt_accounts)){
@@ -235,12 +252,13 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
     #total_balance <- 0
     #print(paste("I will end here on the first row for everything changing balance to ", total_balance))
     latest_results <- tail(timeline_results2 , n = 1)
+    print("**************************************************************")
     print("latest results are")
     print(latest_results)
     total_balance <- findNewBalance(latest_results)
     print("Total Balance Now is")
     print(total_balance)
-
+    print("**************************************************************")
   }
 
 }
