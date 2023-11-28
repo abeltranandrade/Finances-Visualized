@@ -325,6 +325,11 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
     print("**************************************************************")
   }
 
+  print(paste("The class of the data is ", class(timeline_results2)))
+  print("What I am returning is ")
+  print(timeline_results2)
+  return(timeline_results2)
+
 }
 
 createTimeline <- function(debt_accounts, disposable_income) {
@@ -619,8 +624,8 @@ ui <- dashboardPage(
               sliderInput("Timeline", "Move Through The Months", min = 1, max = 50, value = 1)
             ),
             column(
-              width = 8
-
+              width = 8,
+              fluidRow(DTOutput("TimelineTable"))
             )
           )
         )
@@ -707,7 +712,7 @@ server <- function(input, output) {
 
   disposable <- reactiveVal(data.frame(amount =0))
   debts <- reactiveVal(data.frame(title= character(), balance = numeric(), APR = numeric(), minimum = numeric()))
-
+  timeline <- reactiveVal()
   observeEvent(input$Disposable_submit, {
     #format observed event result into our income format and bind it
     new_disposable <- data.frame(amount = input$disposable_income)
@@ -734,7 +739,9 @@ server <- function(input, output) {
 
     print("This is the function Timeline")
     #print(createTimeline(debt_info, dis_df))
-    print(new_createTimeline(debt_info, dis_df))
+    #print(new_createTimeline(debt_info, dis_df))
+    timeline(new_createTimeline(debt_info, dis_df))
+
 
   })
 
@@ -761,6 +768,10 @@ server <- function(input, output) {
     indexes <-order(expenses()$price, decreasing = TRUE)
     sortedExpenses <- expenses()[indexes, ]
     datatable(sortedExpenses, options = list(pageLength = 10), class = 'cell-border stripe')
+  })
+
+  output$TimelineTable <- renderDT({
+    datatable(timeline(), options = list(pageLength = 10), class = 'cell-border stripe')
   })
 
 ########
