@@ -20,7 +20,15 @@ createCorrespondingColumns <- function(debt_title){
   })
 }
 
-#data looks different for both cases
+
+#' calculateOriginalBalance
+#'
+#' @param month current month index
+#' @param data data frame that contains each debt information submitted by user APR, minimum, initial balance, title
+#' @param results data frame where we are storing the results of the timeline
+#' @param firstRow boolean value to indicate if this instance is the first row of the timeline results dataframe or not.
+#'
+#' @return the updated timeline results dataframe with the current month's original balance columns filled and all data before it
 calculateOriginalBalance <- function(month ,data, results, firstRow) {
   if(firstRow == TRUE){
     for( debt in 1:nrow(data)){
@@ -34,6 +42,18 @@ calculateOriginalBalance <- function(month ,data, results, firstRow) {
   return(results)
 }
 
+
+#' calculate New Balance
+#'
+#' @param month current month index
+#' @param disposable disposable money that could be used to tackle this debt. Note to use this parameter tackle parameter must be TRUE
+#' @param debt_df data frame that contains each debt information submitted by user
+#' @param debt_index index of the debt being tackled in this iteration
+#' @param result_df data frame where we are creating the updated timeline results
+#' @param tackle boolean value that indicates if we have extra disposable money to use on this debt this month. If false, we will only pay the minimum in this debt
+#' @param firstRow boolean value that indicates if this instance is the first Row of the timeline results
+#'
+#' @return the updated timeline data frame with the current debt's interest added and new balance columns updated.
 calculateNewBalance <- function(month, disposable, debt_df, debt_index, result_df, tackle, firstRow) {
 
   # select the debt we are creating a new balance for
@@ -62,10 +82,8 @@ calculateNewBalance <- function(month, disposable, debt_df, debt_index, result_d
     result_df[month, paste0(current_debt$title,"_Interest_Added")] <- 0
     result_df[month, paste0(current_debt$title,"_New_Balance")] <- 0
 
-
     # calculate amount of income remaining after clearing this debt
     residual <-  disposable - current_balance
-    print(paste("INSIDE FUNC NEWBALANCE: Disposable is ", disposable, " and current balance is", current_balance, " Then residual is ", residual))
 
     # return updated dataframe and the amount of income left to tackle debt this month
     return(list(dataframe = result_df, residual = residual, DebtWiped = debt_index))
@@ -138,7 +156,7 @@ checkForWipedDebt <- function(new_calc_return,current_debt_index){
   else{return(current_debt_index)}
 }
 
-# --------------
+##############
 
 #' Create Input Unit
 #' @description This app needs to query different type of information to create its tools such as income, expenses, disposable income, debts etc they are all different data but all need a header title and a certain number of input fields of certain types. This function generalizes those "units". See wireframe for visual example
