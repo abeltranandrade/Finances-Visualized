@@ -5,6 +5,141 @@ library(plotly)
 library(DT)
 library(shinyjs)
 library(dplyr)
+
+# Helper Functions for New CreateTimelien ---------------------------------
+
+#' Title: createCorrespondingColumns
+#' @description generates three variations of column names for each debt in the input vector. This is to create the variable columns depending on how many debts are inputed.
+#'
+#' @param debt_title vector containing all the the phrases you want to create into 3 columns with the different suffixes
+#'
+#' @return returns a nested vector with all the column variations with different debt titles
+createCorrespondingColumns <- function(debt_title){
+  lapply(debt_title, function (debt){
+    debt_columns <- paste0(debt, c("_Original_Balance", "_Interest_Added", "_New_Balance"))
+  })
+}
+
+#data looks different for both cases
+calculateOriginalBalance <- function(month ,data, results, firstRow) {
+  if(firstRow == TRUE){
+    for( debt in 1:nrow(data)){
+      current <- data[debt,]
+      results[month, paste0(current$title,"_Original_Balance")] <- current$balance
+    }
+  }else{
+    # Put the past month's same title new balance onto the next month original balance
+    results[month, paste0(data$title,"_Original_Balance")] <- results[month-1, paste0(data$title,"_New_Balance")]
+  }
+  return(results)
+}
+
+calculateNewBalance <- function(month, disposable, debt_df, debt_index, result_df, tackle, firstRow) {
+
+  # select the debt we are creating a new balance for
+  current_debt <- debt_df[debt_index,]
+
+  #calculate monthly APR
+  monthly_apr <- (current_debt$APR/100.0 ) /12.0
+
+  # What is the most recient balance being held on a certain debt
+  # if first row, balance is in the debt dataset while other rows need their previous month new balance
+  #if we want to get rid of this current statement and just do the original balance with the same title but I dont know if that will make that big of a difference. We will have to create a test error pulling case if the original balances for a certain debt is still NA
+  current_balance <- switch(firstRow,
+                            "1" = current_debt$balance,
+                            "0" = result_df[ month-1, paste0(current_debt$title,"_New_Balance")])
+
+
+  # take away the minimum payment which we assume we have included in our needs budget until out of debt
+  current_balance <- current_balance - current_debt$minimum
+
+  # if we can wipe out the debt this month (less debt balance than income)
+  if(disposable > current_balance || current_balance < 0 ){
+    # covering case that current balance goes negative from the minimum subtraction
+    if(current_balance < 0){current_balance <- 0}
+
+    #update the new values to the rows
+    result_df[month, paste0(current_debt$title,"_Interest_Added")] <- 0
+    result_df[month, paste0(current_debt$title,"_New_Balance")] <- 0
+
+
+    # calculate amount of income remaining after clearing this debt
+    residual <-  disposable - current_balance
+    print(paste("INSIDE FUNC NEWBALANCE: Disposable is ", disposable, " and current balance is", current_balance, " Then residual is ", residual))
+
+    # return updated dataframe and the amount of income left to tackle debt this month
+    return(list(dataframe = result_df, residual = residual, DebtWiped = debt_index))
+  }
+  else{ # Not enough disposable income to tackle this debt fully
+
+    # If you have to tackle with disposable income or not
+    if(tackle == TRUE){
+      temp_balance <- current_balance - disposable
+    }else{
+      # we already subtracted the minimum amount from current balance so temp is same as current
+      temp_balance <- current_balance
+    }
+
+    #calculating this months interest added
+    interest <- temp_balance * monthly_apr
+    new_balance <- temp_balance + interest
+
+    #update the new values to the rows
+    result_df[month, paste0(current_debt$title,"_Interest_Added")] <- interest
+    result_df[month, paste0(current_debt$title,"_New_Balance")] <- new_balance
+
+    #If we do not tackle the debt in this one, we will have to return the dataframe and say that there is no more disposable income this month
+    return(list(dataframe = result_df, residual = 0, DebtWiped = NA))
+  }
+}
+
+
+#' Find New Balance
+#'@description calculates the total amount of debt remaining in the current month iteration.
+#'
+#' @param row: The latest row in the timeline result data frame. A row that contains New Balance Columns.
+#'
+#' @return returns the amount of total debt remaining during this current month aka row
+findNewBalance <- function(row) {
+  # identify the new balance column indexes
+  new_balance_columns <- grep("New_Balance$", names(row), value = TRUE)
+  # Sum the values in the selected columns for the current row
+  sum_values <- sum(row[new_balance_columns])
+  return(sum_values)
+}
+
+#' sumMinimums
+#' @description calculates the sum of the minimum payments of the debts that are zero'ed.
+#'
+#' @param debt_df data frame that contains each debt information submitted by user APR, minimum, initial balance, title
+#' @param index the highest index among the debts where the new balance is equal to zero
+#'
+#' @return The sum of the minimum payments of all the debts that have already been wiped. Since we assume to tackle debts in order of the rows in the original dataframe
+sumMinimums <- function(debt_df, index){
+  # index the rows correctly given index (indexing breaks in case 1:1)
+  if(index == 1){tosum <- debt_df[1,]}
+  else{tosum <- debt_df[1:index,]}
+  #sum column
+  x <- sum(tosum$minimum)
+  return(x)
+}
+
+
+#' CheckForWipedDebt
+#'@description updates the highest index among the debts where the new balance is equal to zero if it had changed in that iteration of finding new balances.
+#'
+#'@details This function was created to get rid of 4 if statements that updated new_debt_index if the debt being updated has been wiped.
+#' @param new_calc_return The third return of findNewBalance that indicates if the debt was wiped. It will NOT BE NA if debt was wiped.
+#' @param current_debt_index The current highest index among the debts where the new balance is equal to zero.
+#'
+#' @return The highest index among the debts where the new balance is equal to zero. It will only be different or updated if new_calc_return is not NA
+checkForWipedDebt <- function(new_calc_return,current_debt_index){
+  if(!is.na(new_calc_return)){return(new_calc_return)}
+  else{return(current_debt_index)}
+}
+
+# --------------
+
 #' Create Input Unit
 #' @description This app needs to query different type of information to create its tools such as income, expenses, disposable income, debts etc they are all different data but all need a header title and a certain number of input fields of certain types. This function generalizes those "units". See wireframe for visual example
 #'
@@ -29,105 +164,6 @@ createInputUnit <- function(header, ..., button_label, button_id) {
 }
 
 new_createTimeline <-  function(debt_accounts, disposable_income) {
-  createCorrespondingColumns <- function(debt_title){
-    lapply(debt_title, function (debt){
-    debt_columns <- paste0(debt, c("_Original_Balance", "_Interest_Added", "_New_Balance"))
-    })
-  }
-  #data looks different for both cases
-  calculateOriginalBalance <- function(month ,data, results, firstRow) {
-    if(firstRow == TRUE){
-      for( debt in 1:nrow(data)){
-        current <- data[debt,]
-        results[month, paste0(current$title,"_Original_Balance")] <- current$balance
-      }
-    }else{
-      # Put the past month's same title new balance onto the next month original balance
-      results[month, paste0(data$title,"_Original_Balance")] <- results[month-1, paste0(data$title,"_New_Balance")]
-    }
-    return(results)
-  }
-
-  calculateNewBalance <- function(month, disposable, debt_df, debt_index, result_df, tackle, firstRow) {
-
-      # select the debt we are creating a new balance for
-      current_debt <- debt_df[debt_index,]
-
-      #calculate monthly APR
-      monthly_apr <- (current_debt$APR/100.0 ) /12.0
-
-      # What is the most recient balance being held on a certain debt
-      # if first row, balance is in the debt dataset while other rows need their previous month new balance
-      #if we want to get rid of this current statement and just do the original balance with the same title but I dont know if that will make that big of a difference. We will have to create a test error pulling case if the original balances for a certain debt is still NA
-      current_balance <- switch(firstRow,
-                                 "1" = current_debt$balance,
-                                 "0" = result_df[ month-1, paste0(current_debt$title,"_New_Balance")])
-
-
-      # take away the minimum payment which we assume we have included in our needs budget until out of debt
-      current_balance <- current_balance - current_debt$minimum
-
-      # if we can wipe out the debt this month (less debt balance than income)
-      if(disposable > current_balance || current_balance < 0 ){
-        # covering case that current balance goes negative from the minimum subtraction
-        if(current_balance < 0){current_balance <- 0}
-
-        #update the new values to the rows
-        result_df[month, paste0(current_debt$title,"_Interest_Added")] <- 0
-        result_df[month, paste0(current_debt$title,"_New_Balance")] <- 0
-
-
-        # calculate amount of income remaining after clearing this debt
-        residual <-  disposable - current_balance
-        print(paste("INSIDE FUNC NEWBALANCE: Disposable is ", disposable, " and current balance is", current_balance, " Then residual is ", residual))
-
-        # return updated dataframe and the amount of income left to tackle debt this month
-        return(list(dataframe = result_df, residual = residual, DebtWiped = debt_index))
-      }
-      else{ # Not enough disposable income to tackle this debt fully
-
-      # If you have to tackle with disposable income or not
-      if(tackle == TRUE){
-        temp_balance <- current_balance - disposable
-      }else{
-        # we already subtracted the minimum amount from current balance so temp is same as current
-        temp_balance <- current_balance
-      }
-
-      #calculating this months interest added
-      interest <- temp_balance * monthly_apr
-      new_balance <- temp_balance + interest
-
-      #update the new values to the rows
-      result_df[month, paste0(current_debt$title,"_Interest_Added")] <- interest
-      result_df[month, paste0(current_debt$title,"_New_Balance")] <- new_balance
-
-      #If we do not tackle the debt in this one, we will have to return the dataframe and say that there is no more disposable income this month
-      return(list(dataframe = result_df, residual = 0, DebtWiped = NA))
-      }
-  }
-
-  findNewBalance <- function(row) {
-    # identify the new balance column inded
-    new_balance_columns <- grep("New_Balance$", names(row), value = TRUE)
-    # Sum the values in the selected columns for the current row
-    sum_values <- sum(row[new_balance_columns])
-    return(sum_values)
-  }
-
-  sumMinimums <- function(debt_df, index){
-    # index the rows correctly given index (indexing breaks in case 1:1)
-    if(index == 1){tosum <- debt_df[1,]}
-    else{tosum <- debt_df[1:index,]}
-    #sum column
-    x <- sum(tosum$minimum)
-    return(x)
-  }
-
-  checkForWipedDebt <- function(new_calc_return,current_debt_index){
-    if(!is.na(new_calc_return)){return(new_calc_return)}
-    else{return(current_debt_index)}
-  }
 
   #initiating "tracking" functions
   min_clear <- 0
