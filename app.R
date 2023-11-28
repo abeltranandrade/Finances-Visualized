@@ -115,14 +115,6 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
     return(sum_values)
   }
 
-  updateZeros <- function(month, debt_title, timeline_df){
-      timeline_df[month,paste(title, "_Original_Balance")] <- 0
-      timeline_df[month,paste(title, "_New_Balance")] <- 0
-      timeline_df[month, paste(title, "Interest_Added")] <- 0
-    # Return the updated dataframe
-    return(timeline_df)
-  }
-
   sumMinimums <- function(debt_df, index){
     # index the rows correctly given index (indexing breaks in case 1:1)
     if(index == 1){tosum <- debt_df[1,]}
@@ -132,24 +124,9 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
     return(x)
   }
 
-  sumMinimums2 <- function(debt_df, index){
-    # index the rows correctly given index (indexing breaks in case 1:1)
-    row <- debt_df[1,]$minimum
-
-    #sum column
-    x <- sum(tosum$minimum)
-    return(x)
-  }
-
   checkForWipedDebt <- function(new_calc_return,current_debt_index){
     if(!is.na(new_calc_return)){return(new_calc_return)}
     else{return(current_debt_index)}
-  }
-
-  createNewMonth <- function(month_index, disposable, debt_df, timeline_results2, firstRow, ClearDebt_index){
-    timeline_results2[month_index, 'Month'] <- month_index
-    tackle_money <- disposable
-
   }
 
   #initiating "tracking" functions
