@@ -13,7 +13,7 @@ library(dplyr)
 #' @param button_label label on the submission button. Note this should be the second to last parameter
 #' @param button_id ID to call  the submitted information in this input field/s. Note this should be the last parameter
 #'
-#' @return Final stuff
+#' @return creates the desire amount of UI input blocks for the unit
 # Function to create input fields that contain a header, paragraph, and variable number of input elements.
 createInputUnit <- function(header, ..., button_label, button_id) {
   fluidRow(h3(header),
@@ -142,8 +142,8 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
   }
 
   checkForWipedDebt <- function(new_calc_return,current_debt_index){
-    if(is.na(new_calc_return)){return(current_debt_index)}
-    else{return(new_calc_return)}
+    if(!is.na(new_calc_return)){return(new_calc_return)}
+    else{return(current_debt_index)}
   }
 
   createNewMonth <- function(month_index, disposable, debt_df, timeline_results2, firstRow, ClearDebt_index){
@@ -193,11 +193,8 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
           timeline_results2 <- new_calculations$dataframe
           # residual from this debt goes to tackle the next debt
           tackle_money <- new_calculations$residual
-
-          if(!is.na(new_calculations$DebtWiped)){
-            new_debt_index <- new_calculations$DebtWiped
-            print(paste("1:This is month ", month_index, "and we just wiped out debt", new_debt_index))
-          }
+          #function updates new_debt_index if newly calculated DebtWiped is not NA
+          new_debt_index <- checkForWipedDebt(new_calculations$DebtWiped, new_debt_index)
       }
     }
     # if there are still un-updated debts to calculate after disposable is gone
@@ -208,10 +205,8 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
         # For all the other j debts, calculate new balance only through minimum
         new_calculations <- calculateNewBalance(month_index, tackle_money, debt_accounts, j,
                                                 timeline_results2, tackle = FALSE, firstRow = 1)
-        if(!is.na(new_calculations$DebtWiped)){
-          new_debt_index <- new_calculations$DebtWiped
-          print(paste("2: This is month ", month_index, "and we just wiped out debt", new_debt_index))
-        }
+        #function updates new_debt_index if newly calculated DebtWiped is not NA
+        new_debt_index <- checkForWipedDebt(new_calculations$DebtWiped, new_debt_index)
         #update the dataframe with new calculations
         timeline_results2 <- new_calculations$dataframe
       }
@@ -251,14 +246,11 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
             timeline_results2 <- new_calculations$dataframe
             # residual from this debt goes to tackle the next debt
             tackle_money <- new_calculations$residual
-
-            if(!is.na(new_calculations$DebtWiped)){
-              new_debt_index <- new_calculations$DebtWiped
-              print(paste("3: This is month ", month_index, "and we have wiped out debt", new_debt_index))
-            }
+            #function updates new_debt_index if newly calculated DebtWiped is not NA
+            new_debt_index <- checkForWipedDebt(new_calculations$DebtWiped, new_debt_index)
 
       }
-      # break if you have disposable income after going through each debt new balance
+      # break if you have disposable income after going through each debt new balance(DO I NEED THIS?)ANSWER: YES OR YOU"LL STAY STUCK ON WHILE
       if(x == nrow(debt_accounts) && tackle_money > 0){break}
     }
 
@@ -270,10 +262,8 @@ new_createTimeline <-  function(debt_accounts, disposable_income) {
         #for all other loans, do only minimums
         new_calculations <- calculateNewBalance(month_index, tackle_money, debt_accounts, y,
                                                 timeline_results2, tackle = FALSE, firstRow = "0")
-        if(!is.na(new_calculations$DebtWiped)){
-          new_debt_index <- new_calculations$DebtWiped
-          print(paste("4: This is month ", month_index, "and we just wiped out debt", new_debt_index))
-        }
+        #function updates new_debt_index if newly calculated DebtWiped is not NA
+        new_debt_index <- checkForWipedDebt(new_calculations$DebtWiped, new_debt_index)
         #updated dataframe with new calculations simulating paying mins
         timeline_results2 <- new_calculations$dataframe
       }
@@ -535,18 +525,3 @@ server <- function(input, output) {
 # Run the application
 shinyApp(ui, server)
 
-
-
-
-
-# # Should be the same as the OG but with a cleaner switch have not tested
-# calculateOriginalBalance2 <- function(month ,data, debt_index, results, firstRow) {
-#   for( debt in debt_index:nrow(data)){
-#     current <- data[debt,]
-#     switch (firstRow,
-#             1 = results[month, paste0(data[debt,]$title,"_Original_Balance")] <- current$balance,
-#             0 = results[month, paste0(data[debt,]$title,"_Original_Balance")] <- results[month-1, paste0(data$title,"_New_Balance")]
-#     )
-#   }
-#   return(results)
-# }
