@@ -62,10 +62,31 @@ ui <- dashboardPage(
       ),
       # Timeline tab (placeholder content)
       tabItem(
-        tabName = "timeline",
-        h2("Timeline Content Goes Here")
-      ),
+        tabName = "timeline",align = "center",
+        fluidPage(
+          fluidRow(
+            column(
+              width = 4,
+              createInputUnit("Disposable", #Input Unit Income
+                              list(label = "Disposable Income", id = "disposable_income", type = "numeric"),
+                              button_label = "Submit Disposable Income", button_id = "Disposable_submit")
+              ,
+              createInputUnit("Debts", #Input Unit: Expenses
+                              list(label = "Debt Name", id = "debt_title", type = "text"),
+                              list(label = "Total Remaining Balance", id = "remaining_balance", type = "numeric"),
+                              list(label = "APR", id = "apr", type = "numeric"),
+                              list(label = "Monthly Minimum", id = "monthly_min", type = "numeric"),
+                              button_label = "Submit Debt Data", button_id = "debt_submit"),
+              actionButton("process_debts", "Get Debt Timeline"),
+              sliderInput("Timeline", "Move Through The Months", min = 1, max = 50, value = 1)
+            ),
+            column(
+              width = 8
 
+            )
+          )
+        )
+      ),
       # Dates tab (placeholder content)
       tabItem(
         tabName = "dates",
@@ -132,6 +153,38 @@ server <- function(input, output) {
   })
 
 ### next tab
+
+  disposable <- reactiveVal(data.frame(amount =0))
+  debts <- reactiveVal(data.frame(title= character(), balance = numeric(), APR = numeric(), minimum = numeric()))
+
+  observeEvent(input$income_submit, {
+    #format observed event result into our income format and bind it
+    new_disposable <- data.frame(amount = input$disposable_income)
+    disposable(rbind(disposable(), new_disposable))
+    print("disposable submit")
+    print(disposable())
+  })
+
+  observeEvent(input$debt_submit, {
+    #format observed event result into our expense format and bind it
+    new_debt <- data.frame(title= input$debt_title, balance = input$remaining_balance, APR = input$apr, minimum = input$monthly_min)
+    debts(rbind(debts(), new_debt))
+    print("debt submit")
+    print(debts())
+  })
+
+  observeEvent(input$process_debts, {
+    dis_df <- disposable()
+    debt_info <- debts()
+
+    print("This is disposable")
+    print(dis_df)
+
+    print("This is debt")
+    print(debt_info)
+
+
+  })
 
   }
 
