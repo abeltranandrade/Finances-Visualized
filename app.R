@@ -39,15 +39,11 @@ sumMinimums <- function(debt_df, index){
 }
 
 findPreviousBalance <- function(month_index, title, result_df, column_retrival){
-  print(paste("Month index is ", month_index, " title is ", title))
-  #Find index where the result_df matches the title we give it and its also the month previous to this
-  #id_record <- match(title, result_df$title,) & result_df$month == month_index -1
+  #subset the row from the previous month with a certain title
   subset_previous_entry <- result_df[result_df$month == month_index-1 & result_df$title == title , ]
-  print(paste("subset is ", subset_previous_entry))
   # assuming id record returns just 1 bc there will always be only 1 entry for each debt for each month
   # balance will be the new balance of the located record
   balance <- subset_previous_entry[ ,column_retrival]
-  print(balance)
   return(balance)
 }
 
@@ -100,88 +96,73 @@ simulateProgress <- function(debt_df, disposable_df) {
     no_change = logical()          # What the balance would be if only paying minimum
   )
 
+  md_df <- data.frame(
+    month = numeric(),
+    disposable = numeric()
+  )
+
   total_balance <- sum(debt_df$balance)
-  print(total_balance)
   disposable <- tail(disposable_df, n = 1)$amount
-  print(paste("disposable ", disposable))
   min_clear <- 0
   month_index <- 0
   #  highest index of a debt with a balance of zero
   debt_index <- 0
 
   while(total_balance > 0) {
-
-    #update new month, update new total disposable money and turn on indicator we can still use disposable
+    #Update month, total disposable money, and activate the disposable indicator.
     month_index <- month_index + 1
-    tackle_money <- disposable + min_clear
+    total_disposable <- disposable + min_clear
     disposable_available <- TRUE
-    print("##############################################")
-    print(paste("this is month ", month_index, " This is tackle money ", tackle_money))
+    md_df <- rbind(md_df,data.frame(month = month_index, disposable = total_disposable))
 
+    #create a row for each debt
     for(debt in 1:nrow(debt_df)){
       #get correct current balance
-      if(month_index == 1){
-        current_balance <- debt_df[debt,]$balance
-      }
-      else{
-        print("inside else statement, this is result_df")
-        print(result_df)
-        current_balance <- findPreviousBalance(month_index, debt_df[debt,]$title, result_df, "new_balance")
-      }
+      if(month_index == 1){current_balance <- debt_df[debt,]$balance}
+      else{current_balance <- findPreviousBalance(month_index, debt_df[debt,]$title, result_df, "new_balance")}
 
-      #this debt has already been wiped fill in the row with zeroes
+      #this debt has already been wiped fill in the row with zeroes and next
       if(current_balance == 0){
-        test_row_df <- data.frame(
+        temp_row <- data.frame(
           month = month_index,
           title = debt_df[debt,]$title,
           original_balance = current_balance,
           added_interest = 0,
           new_balance = 0)
-        result_df <- rbind(result_df, test_row_df)
+        result_df <- rbind(result_df, temp_row)
         next
       }
 
-      #calculate decreasing this debt original balance for this month depending if there is disposable available right now
-      decreasedBalance <- calculatePaidBalance(tackle = disposable_available, current_balance, tackle_money, debt_df[debt,]$minimum)
+      #calculate decreasing this debt original balance for this month depending if there is disposable available this iteration
+      decreasedBalance <- calculatePaidBalance(tackle = disposable_available, current_balance, total_disposable, debt_df[debt,]$minimum)
 
       #calculate interest using balance after og balance paid down
       dec_balance <- decreasedBalance$balance
       interest <- calculateInterest(dec_balance, debt_df[debt,]$APR)
 
-      test_row_df <- data.frame(
+      temp_row <- data.frame(
         month = month_index,
         title = debt_df[debt,]$title,
         original_balance = current_balance,
         added_interest = interest,
         new_balance = dec_balance + interest)
 
-      result_df <- rbind(result_df, test_row_df)
+      result_df <- rbind(result_df, temp_row)
 
-      tackle_money <- decreasedBalance$residual
+      total_disposable <- decreasedBalance$residual
 
       #If the disposible income residual is 0, there is no more disposable income available this month for the next debts
-      if(decreasedBalance$residual == 0){
-        disposable_available <- FALSE
-      }
-
+      if(total_disposable == 0){disposable_available <- FALSE}
       #if a new debt wipe, add it to the counter (debtWiped can only be TRUE once per debt since og balance if statement wipe debt catch that will never let it get this far)
-      if(decreasedBalance$debtWiped == TRUE){
-        debt_index <- debt_index + 1
-      }
+      if(decreasedBalance$debtWiped == TRUE){debt_index <- debt_index + 1}
 
     }
-
-    print(test_row_df)
-    #where minimums of debt cleared up to this month have been sum
+    #sum the minimum payments of debts that have been zeroed to help disposable income
     min_clear <- sumMinimums(debt_df, debt_index)
-
-    print("I pass min cleared")
-    #recalculate
+    #calculate the total debt balance left after this month
     total_balance <- calculateTotalBalance(month_index, result_df)
-    print(paste("total balance is ", total_balance))
   }
-
-  return(result_df)
+  return(list(timeline = result_df, monthly_disposable = md_df))
 }
 
 # Define UI
@@ -237,7 +218,8 @@ ui <- dashboardPage(
               sliderInput("Timeline", "Move Through The Months", min = 1, max = 50, value = 1)
             ),
             column(
-              width = 8
+              width = 8,
+              plotlyOutput("lineChart")
 
             )
           )
@@ -312,6 +294,7 @@ server <- function(input, output) {
 
   disposable <- reactiveVal(data.frame(amount =0))
   debts <- reactiveVal(data.frame(title= character(), balance = numeric(), APR = numeric(), minimum = numeric()))
+  timeline <- reactiveVal(data.frame(month = numeric() ,title = character(), original_balance = numeric(), added_interest = numeric(),new_balance = numeric()))
 
   observeEvent(input$disposable_submit, {
     #format observed event result into our income format and bind it
@@ -339,8 +322,37 @@ server <- function(input, output) {
     print("This is debt")
     print(debt_info)
 
-    print(simulateProgress(debt_info,dis_df))
+    simulation <- simulateProgress(debt_info,dis_df)
+    timeline(rbind(timeline(),simulation$timeline))
+
+    sorted_df <- timeline() %>% arrange(title)
+    print(sorted_df)
   })
+
+  # Render the plot
+  output$lineChart <- renderPlotly({
+    df <- timeline()
+
+    df  <- df %>%
+      group_by(month) %>%
+      summarise(new_balance = sum(new_balance))
+
+    plot_ly(df, x = ~month, y = ~new_balance, type = "bar") %>%
+      layout(title = "Bar Plot of new_balance by Month",
+             xaxis = list(title = "Month"),
+             yaxis = list(title = "new_balance"))
+    # Create the line chart using plot_ly
+  #   plot_ly(df, x = ~month, y = ~new_balance, type = "scatter", mode = "lines") %>%
+  #     layout(title = "Line Chart Faceted by Title",
+  #            xaxis = list(title = "Month"),
+  #            yaxis = list(title = "New Balance"))
+  })
+#   plot_ly(df, x = ~month, y = ~new_balance, color = ~title, type = "scatter", mode = "lines") %>%
+#     layout(title = "Line Chart Faceted by Title",
+#            xaxis = list(title = "Month"),
+#            yaxis = list(title = "New Balance"),
+#            facet_col = ~title)
+# })
 
   }
 
