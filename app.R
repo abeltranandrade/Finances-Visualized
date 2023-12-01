@@ -38,17 +38,52 @@ sumMinimums <- function(debt_df, index){
   return(x)
 }
 
-findOriginalBalance <- function(month_index, title, result_df){
+findPreviousBalance <- function(month_index, title, result_df, column_retrival){
   #Find index where the result_df matches the title we give it and its also the month previous to this
   id_record <- match(title, result_df$title,) & result_df$month == month_index -1
+  print(paste("ID record is ", id_record))
+  # assuming id record returns just 1 bc there will always be only 1 entry for each debt for each month
   # balance will be the new balance of the located record
-  balance <- ifelse(!is.na(id_record), result_df$new_balance[id_record], NA)
+  balance <- ifelse(!is.na(id_record), result_df[id_record, column_retrival], NA)
   return(balance)
+}
+
+calculatePaidBalance <- function(tackle, original_balance, disposable_income, minimum) {
+  #if we will pay more than minimum
+  if(tackle == TRUE){
+    paidDown <- original_balance - minimum
+
+    # if the current balance(after minimum) can be fully paid off with disposable income available
+    if(paidDown <= disposable_income){
+      return(data.frame(balance = 0, residual = disposable_income - paidDown, debtWiped = TRUE))
+    }
+    else{
+      # case: disposable income is not enough to pay the whole debt
+      return(data.frame(balance = paidDown - disposable_income, residual = 0, debtWiped = FALSE))
+    }
+
+  }
+  else{
+    paidDown <- original_balance - minimum
+    if(paidDown < 0){
+      return(data.frame(balance = 0, residual = 0, debtWiped = TRUE))
+    }else{
+      return(data.frame(balance = paidDown, residual = 0, debtWiped = FALSE))
+    }
+
+  }
 }
 
 calculateInterest <- function(current_balance, APR){
   monthly_apr <- (APR/100.0 ) /12.0
   return(current_balance*monthly_apr)
+}
+
+calculateTotalBalance <- function(current_month, result_df){
+  #subset all the rows where month equals current month
+  month_subset <- result_df[result_df$month == current_month, ]
+  #return the sum of the month's new balance column
+  return(sum(month_subset$new_balance))
 }
 
 simulateProgress <- function(debt_df, disposable_df) {
@@ -67,63 +102,107 @@ simulateProgress <- function(debt_df, disposable_df) {
   disposable <- tail(disposable_df, n = 1)$amount
   print(paste("disposable ", disposable))
   min_clear <- 0
-  month_index <- 1
+  month_index <- 0
   #  highest index of a debt with a balance of zero
   debt_index <- 0
 
   while(total_balance > 0) {
 
+    #update new month, update new total disposable money and turn on indicator we can still use disposable
+    month_index <- month_index + 1
     tackle_money <- disposable + min_clear
-    print(paste("tackle money is ", tackle_money))
+    disposable_available <- TRUE
+    print("##############################################")
+    print(paste("this is month ", month_index, " This is tackle money ", tackle_money))
 
-    while(tackle_money > 0){
-      print("result_df ubside while")
+    for(debt in 1:nrow(debt_df)){
+      print(paste("This is debt ", debt))
 
-      for(debt in 1:nrow(debt_df)){
+      # #get correct current balance
+      # if(month_index == 1){
+      #   current_balance <- debt_df[debt,]$balance
+      # }else{
+      #   current_balance <- findPreviousBalance(month_index, debt_df[debt,]$title, result_df, "new_balance")
+      # }
+      #
+      # #this debt has already been wiped fill in the row with zeroes
+      # if(current_balance == 0){
+      #   test_row_df <- data.frame(
+      #     month = month_index,
+      #     title = debt_df[debt,]$title,
+      #     original_balance = current_balance,
+      #     added_interest = 0,
+      #     new_balance = 0)
+      #   next
+      # }
 
-        if(month_index == 1){
-          new_rows <- data.frame(
-            month = month_index,
-            title = debt_df[debt,]$title,
-            original_balance = debt_df[debt,]$balance,
-            added_interest = NA,
-            new_balance = NA
-          )
-        temp_balance <- new_rows$original_balance
-        print(paste("I get to temp balance ", temp_balance))
 
-        result_df <- dplyr::bind_rows(result_df, new_rows)
-
-        }
-        else{
-          new_rows <- data.frame(
-            month = month_index,
-            title = debt$title,
-            original_balance = findOriginalBalance(month_index, debt_title, result_df),
-            added_interest = NA,
-            new_balance = NA
-          )
-
-          if(new_rows$original_balance == 0){
-            new_rows$added_interest <- 0
-            new_rows$new_balance <- 0
-          }
-
-          result_df <- dplyr::bind_rows(result_df, new_rows)
-        }
+      # edge case: getting Original Balance is different in the first row than consecutive rows
+      #initiating new entry row with default information for the debt and month
+      if(month_index == 1){
+        new_rows <- data.frame(
+          month = month_index,
+          title = debt_df[debt,]$title,
+          original_balance = debt_df[debt,]$balance,
+          added_interest = NA,
+          new_balance = NA
+        )
+      }
+      else{
+        new_rows <- data.frame(
+          month = month_index,
+          title = debt_df[debt,]$title,
+          original_balance = findPreviousBalance(month_index, debt_df[debt,]$title, result_df, "new_balance"),
+          added_interest = NA,
+          new_balance = NA
+        )
+        print("I am inside else statement, findprevious Balance NOT THE ISSUE")
       }
 
-      tackle_money <- 0
-      # break if you have disposable income after going through each debt new balance(DO I NEED THIS?)ANSWER: YES OR YOU"LL STAY STUCK ON WHILE
-      #if(debt == nrow(debt_df) && tackle_money > 0){break}
+      print("new rows is")
+      print(new_rows)
+      #If this debt is already at zero, just add zeroes and continue to next debt
+      if(new_rows$original_balance == 0){
+        new_rows$added_interest <- 0
+        new_rows$new_balance <- 0
+        result_df <- rbind(result_df, new_rows)
+        next
+      }
+
+      print("I am above decreased balance")
+      #calculate decreasing this debt original balance for this month depending if there is disposable available right now
+      decreasedBalance <- calculatePaidBalance(tackle = disposable_available, new_rows$original_balance, tackle_money, debt_df[debt,]$minimum)
+
+      #calculate interest using balance after og balance paid down
+      dec_balance <- decreasedBalance$balance
+      interest <- calculateInterest(dec_balance, debt_df[debt,]$APR)
+      print("I get after calculating interest")
+      #Add new balance and interest to this debt new month row and append it to the result df
+      new_rows$added_interest <- interest
+      new_rows$new_balance <- dec_balance + interest
+      result_df <- rbind(result_df, new_rows)
+
+      tackle_money <- decreasedBalance$residual
+
+      #If the disposible income residual is 0, there is no more disposable income available this month for the next debts
+      if(decreasedBalance$residual == 0){
+        disposable_available <- FALSE
+      }
+
+      #if a new debt wipe, add it to the counter (debtWiped can only be TRUE once per debt since og balance if statement wipe debt catch that will never let it get this far)
+      if(decreasedBalance$debtWiped == TRUE){
+        debt_index <- debt_index + 1
+      }
+
     }
 
-    #iterate to next month for next row
-    month_index <- month_index +1
+    print(result_df)
     #where minimums of debt cleared up to this month have been sum
-    min_clear <- sumMinimums(debt_accounts, debt_index)
+    min_clear <- sumMinimums(debt_df, debt_index)
 
-    total_balance <- 0
+    print("I pass min cleared")
+    #recalculate
+    total_balance <- calculateTotalBalance(month_index, result_df)
     print(paste("total balance is ", total_balance))
   }
 
