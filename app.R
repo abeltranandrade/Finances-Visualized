@@ -28,6 +28,38 @@ createInputUnit <- function(header, ..., button_label, button_id) {
   )
 }
 
+#' Title
+#' @description Where you create how the value boxes look and where they display information. It can be expanded later to become more general and have different templates.
+#'
+#' @param title information detailing what the number above represents
+#' @param value The variable value we want to display to the user about their debt data throughout the months
+#'
+#' @return
+#' @export
+#'
+#' @examples
+createValueBox <- function(title, value ) {
+  #valueBox(value, subtitle = title, color = "light-blue")
+  valueBox(
+    paste0("$", value),
+    title
+  )
+}
+
+#' Title
+#'
+#' @param id_titles a vector containing the chosen names for each value box unit you want to create in the ui
+#'
+#' @return create x amount of value boxes to the ui
+#' @export
+#'
+#' @examples
+multipleValueBoxes <- function(id_titles){
+    lapply(id_titles, function(box_title){
+      valueBoxOutput(box_title, width = 3)
+    })
+}
+
 sumMinimums <- function(debt_df, index){
   if(index == 0){return(0)}
   # index the rows correctly given index (indexing breaks in case 1:1)
@@ -245,12 +277,15 @@ ui <- dashboardPage(
                               list(label = "Monthly Minimum", id = "monthly_min", type = "numeric"),
                               button_label = "Submit Debt Data", button_id = "debt_submit"),
               actionButton("process_debts", "Get Debt Timeline"),
-              sliderInput("Timeline", "Move Through The Months", min = 1, max = 50, value = 1)
+              conditionalPanel(
+                condition = "input.process_debts > 0",
+                sliderInput("Timeline", "Move Through The Months", min = 1, max = 12, value = 1)
+              )
             ),
             column(
               width = 8,
-              plotlyOutput("lineChart")
-
+              #plotlyOutput("lineChart")
+              multipleValueBoxes(c("DispoBox", "TotalBox", "IntSavedBox", "MinimumFreedBox"))
             )
           )
         )
@@ -382,15 +417,24 @@ server <- function(input, output) {
   #     layout(title = "Line Chart Faceted by Title",
   #            xaxis = list(title = "Month"),
   #            yaxis = list(title = "New Balance"))
+
+    #   plot_ly(df, x = ~month, y = ~new_balance, color = ~title, type = "scatter", mode = "lines") %>%
+    #     layout(title = "Line Chart Faceted by Title",
+    #            xaxis = list(title = "Month"),
+    #            yaxis = list(title = "New Balance"),
+    #            facet_col = ~title)
   })
-#   plot_ly(df, x = ~month, y = ~new_balance, color = ~title, type = "scatter", mode = "lines") %>%
-#     layout(title = "Line Chart Faceted by Title",
-#            xaxis = list(title = "Month"),
-#            yaxis = list(title = "New Balance"),
-#            facet_col = ~title)
-# })
 
-  }
 
+    values <- c("Disposable Income", "Total Debt Balance", "Interest Saved", "Minimum Freed")
+    box_titles <- c("DispoBox", "TotalBox", "IntSavedBox", "MinimumFreedBox")
+    amounts <- c(500, 10000, 2000, 300)
+    icons <- rep("fa-dollar", 4)
+
+   lapply(1:length(box_titles), function(i) {
+      output[[box_titles[i]]] <- renderValueBox({createValueBox(values[i], amounts[i])})
+    })
+
+}
 # Run the application
 shinyApp(ui, server)
