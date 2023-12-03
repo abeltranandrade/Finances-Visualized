@@ -39,6 +39,7 @@ sumMinimums <- function(debt_df, index){
 }
 
 findPreviousBalance <- function(month_index, title, result_df, column_retrival){
+  print(title)
   #subset the row from the previous month with a certain title
   subset_previous_entry <- result_df[result_df$month == month_index-1 & result_df$title == title , ]
   # assuming id record returns just 1 bc there will always be only 1 entry for each debt for each month
@@ -92,8 +93,7 @@ simulateProgress <- function(debt_df, disposable_df) {
     title = character(),        # Debt ID title
     original_balance = numeric(),  # Balance at the start of the month
     added_interest = numeric(),    # Interest added at the end of month balance
-    new_balance = numeric(),       # End of month balance with interest added
-    no_change = logical()          # What the balance would be if only paying minimum
+    new_balance = numeric()       # End of month balance with interest added
   )
 
   md_df <- data.frame(
@@ -165,6 +165,36 @@ simulateProgress <- function(debt_df, disposable_df) {
   return(list(timeline = result_df, monthly_disposable = md_df))
 }
 
+noChangeSimulation <- function(total_months, debt_df){
+  result_df <- data.frame(
+    month = numeric(),          # Month in the progress
+    title = character(),        # Debt ID title
+    new_balance_min = numeric()       # End of month balance with interest added
+  )
+
+  for(month in 1:total_months){
+    for(debt in 1:nrow(debt_df)){
+
+      # Edge case to find the initial month's debt balance
+      if(month == 1){current_balance <- debt_df[debt,]$balance }
+      else{current_balance <- findPreviousBalance(month, debt_df[debt,]$title, result_df, "new_balance_min")}
+
+      #simulate minimum payment
+      paidDown <- calculatePaidBalance(tackle = FALSE, current_balance,0, debt_df[debt,]$minimum)
+      dec_balance <- paidDown$balance
+      interest <- calculateInterest(dec_balance, debt_df[debt,]$APR)
+
+      #save results
+      temp_row <- data.frame(
+        month = month,
+        title = debt_df[debt, ]$title,
+        new_balance_min = dec_balance + interest
+      )
+      result_df <- rbind(result_df, temp_row)
+    }
+    }
+  return(result_df)
+}
 # Define UI
 ui <- dashboardPage(
   dashboardHeader(title = "Finances Visualized"),
@@ -327,6 +357,12 @@ server <- function(input, output) {
 
     sorted_df <- timeline() %>% arrange(title)
     print(sorted_df)
+
+    #simulating
+    min_only <- noChangeSimulation(nrow(timeline()), debt_info)
+
+    all_together <- merge(timeline(), min_only, by = c("month", "title"))
+    print(all_together)
   })
 
   # Render the plot
