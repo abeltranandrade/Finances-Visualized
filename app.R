@@ -285,7 +285,9 @@ ui <- dashboardPage(
             column(
               width = 8,
               #plotlyOutput("lineChart")
-              multipleValueBoxes(c("DispoBox", "TotalBox", "IntSavedBox", "MinimumFreedBox"))
+              multipleValueBoxes(c("DispoBox", "TotalBox", "IntSavedBox", "MinimumFreedBox")),
+              DTOutput("monthly_total_tbl"),
+              plotlyOutput("bar_total")
             )
           )
         )
@@ -434,10 +436,8 @@ server <- function(input, output) {
 
   descriptions <- c("Disposable Income", "Total Debt Balance", "Interest Saved", "Minimum Freed")
   box_titles <- c("DispoBox", "TotalBox", "IntSavedBox", "MinimumFreedBox")
-#
-#   lapply(1:length(box_titles), function(i) {
-#     output[[box_titles[i]]] <- renderValueBox({createValueBox(descriptions[i], 0)})
-#   })
+
+
   observeEvent(input$Timeline,{
 
     # transformation to get disposable value box value
@@ -463,6 +463,22 @@ server <- function(input, output) {
     updated_values <- c(disposable_value$disposable, total_debt, total_debt_min - total_debt - disposable_value$disposable, minimum_wiped )
     lapply(1:length(box_titles), function(i) {
       output[[box_titles[i]]] <- renderValueBox({createValueBox(descriptions[i], updated_values[i])})
+    })
+
+    total_bal_mon <- timeline() %>%
+      filter(month == input$Timeline) %>%
+      select(title,original_balance, new_balance) %>%
+      rename(Month_Starting_Balance = original_balance, Month_New_Balance = new_balance)
+
+    output[["monthly_total_tbl"]] <- renderDT({datatable(total_bal_mon, options = list(pageLength = 5))})
+
+    total_by_month <- timeline() %>%
+      group_by(month) %>%
+      summarise(total_balance = sum(new_balance))
+
+    output[["bar_total"]] <- renderPlotly({
+      plot_ly(total_by_month, x = ~month, y = ~total_balance, type = "bar", name = "Total Balance") %>%
+        layout(title = "Total Balance by Month", xaxis = list(title = "Month"), yaxis = list(title = "Total Balance"))
     })
   })
 
