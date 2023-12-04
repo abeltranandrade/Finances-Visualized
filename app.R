@@ -279,7 +279,7 @@ ui <- dashboardPage(
               actionButton("process_debts", "Get Debt Timeline"),
               conditionalPanel(
                 condition = "input.process_debts > 0",
-                sliderInput("Timeline", "Move Through The Months", min = 1, max = 12, value = 1)
+                sliderInput("Timeline", "Move Through The Months", min = 0, max = 20, value = 1)
               )
             ),
             column(
@@ -360,6 +360,8 @@ server <- function(input, output) {
   disposable <- reactiveVal(data.frame(amount =0))
   debts <- reactiveVal(data.frame(title= character(), balance = numeric(), APR = numeric(), minimum = numeric()))
   timeline <- reactiveVal(data.frame(month = numeric() ,title = character(), original_balance = numeric(), added_interest = numeric(),new_balance = numeric()))
+  timeline_w_min <- reactiveVal(data.frame(month = numeric() ,title = character(), original_balance = numeric(), added_interest = numeric(),new_balance = numeric(),new_balance_min = numeric()))
+  timeline_disposable <-reactiveVal(data.frame(month = numeric(),disposable = numeric()))
 
   observeEvent(input$disposable_submit, {
     #format observed event result into our income format and bind it
@@ -387,17 +389,22 @@ server <- function(input, output) {
     print("This is debt")
     print(debt_info)
 
+    #run simulation and store in reactive values
     simulation <- simulateProgress(debt_info,dis_df)
     timeline(rbind(timeline(),simulation$timeline))
+    timeline_disposable(rbind(timeline_disposable(), simulation$monthly_disposable))
+    print(timeline_disposable())
 
     sorted_df <- timeline() %>% arrange(title)
     print(sorted_df)
 
-    #simulating
+    #simulating paying minimum only
     min_only <- noChangeSimulation(nrow(timeline()), debt_info)
 
+    #merging both dataframes together
     all_together <- merge(timeline(), min_only, by = c("month", "title"))
     print(all_together)
+    timeline_w_min(rbind(timeline_w_min(),all_together))
   })
 
   # Render the plot
@@ -425,15 +432,39 @@ server <- function(input, output) {
     #            facet_col = ~title)
   })
 
+  descriptions <- c("Disposable Income", "Total Debt Balance", "Interest Saved", "Minimum Freed")
+  box_titles <- c("DispoBox", "TotalBox", "IntSavedBox", "MinimumFreedBox")
+#
+#   lapply(1:length(box_titles), function(i) {
+#     output[[box_titles[i]]] <- renderValueBox({createValueBox(descriptions[i], 0)})
+#   })
+  observeEvent(input$Timeline,{
 
-    values <- c("Disposable Income", "Total Debt Balance", "Interest Saved", "Minimum Freed")
-    box_titles <- c("DispoBox", "TotalBox", "IntSavedBox", "MinimumFreedBox")
-    amounts <- c(500, 10000, 2000, 300)
-    icons <- rep("fa-dollar", 4)
+    # transformation to get disposable value box value
+    disposable_value <- timeline_disposable() %>%
+      filter(month == input$Timeline)
 
-   lapply(1:length(box_titles), function(i) {
-      output[[box_titles[i]]] <- renderValueBox({createValueBox(values[i], amounts[i])})
+    total_debt <- timeline() %>%
+      filter(month == input$Timeline)
+    total_debt <- sum(total_debt$new_balance)
+
+    total_debt_min <- timeline_w_min() %>%
+      filter(month == input$Timeline)
+    total_debt_min <- sum(total_debt_min$new_balance_min)
+
+    #Identify debts that have been wiped in this month, then get their minimums and sum them
+    minimum_wiped <- timeline_w_min() %>%
+      mutate(Wiped = new_balance == 0) %>%
+      filter(month == input$Timeline & Wiped == TRUE) %>%
+      left_join(debts() %>% select(title, minimum), by = "title")
+    minimum_wiped <- sum(minimum_wiped$minimum)
+    print(minimum_wiped)
+
+    updated_values <- c(disposable_value$disposable, total_debt, total_debt_min - total_debt - disposable_value$disposable, minimum_wiped )
+    lapply(1:length(box_titles), function(i) {
+      output[[box_titles[i]]] <- renderValueBox({createValueBox(descriptions[i], updated_values[i])})
     })
+  })
 
 }
 # Run the application
