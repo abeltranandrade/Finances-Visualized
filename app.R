@@ -125,8 +125,9 @@ simulateProgress <- function(debt_df, disposable_df) {
     title = character(),        # Debt ID title
     original_balance = numeric(),  # Balance at the start of the month
     added_interest = numeric(),    # Interest added at the end of month balance
-    new_balance = numeric()       # End of month balance with interest added
-  )
+    new_balance = numeric(),       # End of month balance with interest added
+    extra = numeric()
+    )
 
   md_df <- data.frame(
     month = numeric(),
@@ -160,14 +161,14 @@ simulateProgress <- function(debt_df, disposable_df) {
           title = debt_df[debt,]$title,
           original_balance = current_balance,
           added_interest = 0,
-          new_balance = 0)
+          new_balance = 0,
+          extra = 0)
         result_df <- rbind(result_df, temp_row)
         next
       }
 
       #calculate decreasing this debt original balance for this month depending if there is disposable available this iteration
       decreasedBalance <- calculatePaidBalance(tackle = disposable_available, current_balance, total_disposable, debt_df[debt,]$minimum)
-      total_disposable <- decreasedBalance$residual
 
       #calculate interest using balance after og balance paid down
       dec_balance <- decreasedBalance$balance
@@ -178,10 +179,12 @@ simulateProgress <- function(debt_df, disposable_df) {
         title = debt_df[debt,]$title,
         original_balance = current_balance,
         added_interest = interest,
-        new_balance = dec_balance + interest)
+        new_balance = dec_balance + interest,
+        extra = total_disposable - decreasedBalance$residual)
 
       result_df <- rbind(result_df, temp_row)
 
+      total_disposable <- decreasedBalance$residual
       #If the disposible income residual is 0, there is no more disposable income available this month for the next debts
       if(total_disposable == 0){disposable_available <- FALSE}
       #if a new debt wipe, add it to the counter (debtWiped can only be TRUE once per debt since og balance if statement wipe debt catch that will never let it get this far)
@@ -362,7 +365,7 @@ server <- function(input, output) {
 
   disposable <- reactiveVal(data.frame(amount =0))
   debts <- reactiveVal(data.frame(title= character(), balance = numeric(), APR = numeric(), minimum = numeric()))
-  timeline <- reactiveVal(data.frame(month = numeric() ,title = character(), original_balance = numeric(), added_interest = numeric(),new_balance = numeric()))
+  timeline <- reactiveVal(data.frame(month = numeric() ,title = character(), original_balance = numeric(), added_interest = numeric(),new_balance = numeric(), extra = numeric()))
   timeline_w_min <- reactiveVal(data.frame(month = numeric() ,title = character(), original_balance = numeric(), added_interest = numeric(),new_balance = numeric(),new_balance_min = numeric()))
   timeline_disposable <-reactiveVal(data.frame(month = numeric(),disposable = numeric()))
 
@@ -459,9 +462,7 @@ server <- function(input, output) {
       mutate(Wiped = new_balance == 0) %>%
       filter(month == input$Timeline & Wiped == TRUE) %>%
       left_join(debts() %>% select(title, minimum), by = "title")
-    print(minimum_wiped)
     minimum_wiped_sum <- sum(minimum_wiped$minimum)
-    print(minimum_wiped_sum)
 
     #Should Interest saved be the latest new balance min minus what we still have to pay
 
@@ -487,7 +488,7 @@ server <- function(input, output) {
 
     total_bal_mon <- timeline() %>%
       filter(month == input$Timeline) %>%
-      select(title,original_balance, new_balance) %>%
+      select(title,original_balance,extra, new_balance) %>%
       rename(Month_Starting_Balance = original_balance, Month_New_Balance = new_balance)
 
     output[["monthly_total_tbl"]] <- renderDT({datatable(total_bal_mon, options = list(pageLength = 5))})
