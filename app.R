@@ -5,6 +5,7 @@ library(plotly)
 library(DT)
 library(shinyjs)
 library(dplyr)
+library(tidyr)
 #' Create Input Unit
 #' @description This app needs to query different type of information to create its tools such as income, expenses, disposable income, debts etc they are all different data but all need a header title and a certain number of input fields of certain types. This function generalizes those "units". See wireframe for visual example
 #'
@@ -283,7 +284,7 @@ ui <- dashboardPage(
               actionButton("process_debts", "Get Debt Timeline"),
               conditionalPanel(
                 condition = "input.process_debts > 0",
-                sliderInput("Timeline", "Move Through The Months", min = 0, max = 20, value = 1)
+                sliderInput("Timeline", "Move Through The Months", min = 0, max = 30, value = 1)
               )
             ),
             column(
@@ -291,7 +292,8 @@ ui <- dashboardPage(
               #plotlyOutput("lineChart")
               multipleValueBoxes(c("DispoBox", "TotalBox", "IntSavedBox", "MinimumFreedBox")),
               DTOutput("monthly_total_tbl"),
-              plotlyOutput("bar_total")
+              plotlyOutput("bar_total"),
+              plotlyOutput("dis_vs_min_bar")
             )
           )
         )
@@ -464,9 +466,10 @@ server <- function(input, output) {
       left_join(debts() %>% select(title, minimum), by = "title")
     minimum_wiped_sum <- sum(minimum_wiped$minimum)
 
-    total_by_month <- timeline() %>%
+    total_by_month <- timeline_w_min() %>%
       group_by(month) %>%
-      summarise(total_balance = sum(new_balance))
+      summarise(active_total_balance = sum(new_balance),
+                minimum_total_balance = sum(new_balance_min))
 
     interest_saved <- total_debt_interest_min - total_debt_interest
 
@@ -489,11 +492,30 @@ server <- function(input, output) {
       select(title,original_balance,extra, new_balance) %>%
       rename(Month_Starting_Balance = original_balance, Month_New_Balance = new_balance)
 
-    output[["monthly_total_tbl"]] <- renderDT({datatable(total_bal_mon, options = list(pageLength = 5))})
+    output[["monthly_total_tbl"]] <- renderDT({datatable(total_bal_mon, options = list(pageLength = 5), colnames = c("Debt Title", "Month Starting Balance", "Disposable Income Towards Debt", "Month New Balance"))})
 
     output[["bar_total"]] <- renderPlotly({
-      plot_ly(total_by_month, x = ~month, y = ~total_balance, type = "bar", name = "Total Balance") %>%
+      plot_ly(total_by_month, x = ~month, y = ~active_total_balance, type = "bar", name = "Total Balance") %>%
         layout(title = "Total Balance by Month", xaxis = list(title = "Month"), yaxis = list(title = "Total Balance"))
+    })
+
+    # Reshape the dataframe to tidy format to be able to create a faceted barplot with minimum simulation
+    tidy_total <- total_by_month %>%
+      tidyr::pivot_longer(
+        cols = c(active_total_balance, minimum_total_balance),
+        names_to = "simulation",
+        values_to = "value"
+      )
+
+    output[["dis_vs_min_bar"]] <-renderPlotly({
+      plot_ly(tidy_total, x = ~month, y = ~value, color = ~simulation, type = "bar") %>%
+        layout(
+          title = "Faceted Bar Plot",
+          xaxis = list(title = "Month"),
+          yaxis = list(title = "Value"),
+          barmode = "group",
+          facet_col = ~simulation
+        )
     })
   })
 
