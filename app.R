@@ -167,6 +167,7 @@ simulateProgress <- function(debt_df, disposable_df) {
 
       #calculate decreasing this debt original balance for this month depending if there is disposable available this iteration
       decreasedBalance <- calculatePaidBalance(tackle = disposable_available, current_balance, total_disposable, debt_df[debt,]$minimum)
+      total_disposable <- decreasedBalance$residual
 
       #calculate interest using balance after og balance paid down
       dec_balance <- decreasedBalance$balance
@@ -180,8 +181,6 @@ simulateProgress <- function(debt_df, disposable_df) {
         new_balance = dec_balance + interest)
 
       result_df <- rbind(result_df, temp_row)
-
-      total_disposable <- decreasedBalance$residual
 
       #If the disposible income residual is 0, there is no more disposable income available this month for the next debts
       if(total_disposable == 0){disposable_available <- FALSE}
@@ -201,6 +200,7 @@ noChangeSimulation <- function(total_months, debt_df){
   result_df <- data.frame(
     month = numeric(),          # Month in the progress
     title = character(),        # Debt ID title
+    added_interest_min = numeric(),
     new_balance_min = numeric()       # End of month balance with interest added
   )
 
@@ -220,6 +220,7 @@ noChangeSimulation <- function(total_months, debt_df){
       temp_row <- data.frame(
         month = month,
         title = debt_df[debt, ]$title,
+        added_interest_min = interest,
         new_balance_min = dec_balance + interest
       )
       result_df <- rbind(result_df, temp_row)
@@ -446,19 +447,21 @@ server <- function(input, output) {
 
     total_debt <- timeline() %>%
       filter(month == input$Timeline)
-    total_debt <- sum(total_debt$new_balance)
+    total_debt_balance <- sum(total_debt$new_balance)
+    total_debt_interest <- sum(total_debt$added_interest)
 
     total_debt_min <- timeline_w_min() %>%
       filter(month == input$Timeline)
-    total_debt_min <- sum(total_debt_min$new_balance_min)
+    total_debt_interest_min <- sum(total_debt_min$added_interest_min)
 
     #Identify debts that have been wiped in this month, then get their minimums and sum them
     minimum_wiped <- timeline_w_min() %>%
       mutate(Wiped = new_balance == 0) %>%
       filter(month == input$Timeline & Wiped == TRUE) %>%
       left_join(debts() %>% select(title, minimum), by = "title")
-    minimum_wiped <- sum(minimum_wiped$minimum)
     print(minimum_wiped)
+    minimum_wiped_sum <- sum(minimum_wiped$minimum)
+    print(minimum_wiped_sum)
 
     #Should Interest saved be the latest new balance min minus what we still have to pay
 
@@ -466,14 +469,9 @@ server <- function(input, output) {
       group_by(month) %>%
       summarise(total_balance = sum(new_balance))
 
-    total_dispo_used <- timeline_disposable() %>%
-      filter(month <= input$Timeline)
-    all_dispo <- sum(total_dispo_used$disposable)
-    print("total_dispo_usedd")
-    print(total_dispo_used)
-    saved_test <- total_debt_min - total_debt - all_dispo
+    interest_saved <- total_debt_interest_min - total_debt_interest
 
-    updated_values <- c(disposable_value$disposable, total_debt, saved_test, minimum_wiped )
+    updated_values <- c(disposable_value$disposable, total_debt_balance, interest_saved , minimum_wiped_sum )
     default_values <- c(0, 0,  "TODO", "TODO")
     # Updates ValueBoxes given month or places default values if the total debt balance is finished
     if(input$Timeline <= nrow(total_by_month)){
