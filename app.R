@@ -460,10 +460,32 @@ server <- function(input, output) {
     minimum_wiped <- sum(minimum_wiped$minimum)
     print(minimum_wiped)
 
-    updated_values <- c(disposable_value$disposable, total_debt, total_debt_min - total_debt - disposable_value$disposable, minimum_wiped )
-    lapply(1:length(box_titles), function(i) {
-      output[[box_titles[i]]] <- renderValueBox({createValueBox(descriptions[i], updated_values[i])})
-    })
+    #Should Interest saved be the latest new balance min minus what we still have to pay
+
+    total_by_month <- timeline() %>%
+      group_by(month) %>%
+      summarise(total_balance = sum(new_balance))
+
+    total_dispo_used <- timeline_disposable() %>%
+      filter(month <= input$Timeline)
+    all_dispo <- sum(total_dispo_used$disposable)
+    print("total_dispo_usedd")
+    print(total_dispo_used)
+    saved_test <- total_debt_min - total_debt - all_dispo
+
+    updated_values <- c(disposable_value$disposable, total_debt, saved_test, minimum_wiped )
+    default_values <- c(0, 0,  "TODO", "TODO")
+    # Updates ValueBoxes given month or places default values if the total debt balance is finished
+    if(input$Timeline <= nrow(total_by_month)){
+      lapply(1:length(box_titles), function(i) {
+        output[[box_titles[i]]] <- renderValueBox({createValueBox(descriptions[i], updated_values[i])})
+      })
+    }
+    else{
+      lapply(1:length(box_titles), function(i) {
+        output[[box_titles[i]]] <- renderValueBox({createValueBox(descriptions[i], default_values[i])})
+      })
+    }
 
     total_bal_mon <- timeline() %>%
       filter(month == input$Timeline) %>%
@@ -471,10 +493,6 @@ server <- function(input, output) {
       rename(Month_Starting_Balance = original_balance, Month_New_Balance = new_balance)
 
     output[["monthly_total_tbl"]] <- renderDT({datatable(total_bal_mon, options = list(pageLength = 5))})
-
-    total_by_month <- timeline() %>%
-      group_by(month) %>%
-      summarise(total_balance = sum(new_balance))
 
     output[["bar_total"]] <- renderPlotly({
       plot_ly(total_by_month, x = ~month, y = ~total_balance, type = "bar", name = "Total Balance") %>%
