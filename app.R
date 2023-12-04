@@ -178,9 +178,9 @@ simulateProgress <- function(debt_df, disposable_df) {
         month = month_index,
         title = debt_df[debt,]$title,
         original_balance = current_balance,
-        added_interest = interest,
-        new_balance = dec_balance + interest,
-        extra = total_disposable - decreasedBalance$residual)
+        added_interest = round(interest),
+        new_balance = round(dec_balance + interest,2),
+        extra = round(total_disposable - decreasedBalance$residual,2))
 
       result_df <- rbind(result_df, temp_row)
 
@@ -223,8 +223,8 @@ noChangeSimulation <- function(total_months, debt_df){
       temp_row <- data.frame(
         month = month,
         title = debt_df[debt, ]$title,
-        added_interest_min = interest,
-        new_balance_min = dec_balance + interest
+        added_interest_min = round(interest, 2),
+        new_balance_min = round(dec_balance + interest, 2)
       )
       result_df <- rbind(result_df, temp_row)
     }
@@ -463,8 +463,6 @@ server <- function(input, output) {
       filter(month == input$Timeline & Wiped == TRUE) %>%
       left_join(debts() %>% select(title, minimum), by = "title")
     minimum_wiped_sum <- sum(minimum_wiped$minimum)
-
-    #Should Interest saved be the latest new balance min minus what we still have to pay
 
     total_by_month <- timeline() %>%
       group_by(month) %>%
