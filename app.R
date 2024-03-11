@@ -7,15 +7,14 @@ library(shinyjs)
 library(dplyr)
 library(tidyr)
 #' Create Input Unit
-#' @description This app needs to query different type of information to create its tools such as income, expenses, disposable income, debts etc they are all different data but all need a header title and a certain number of input fields of certain types. This function generalizes those "units". See wireframe for visual example
+#' @description This app needs to query different type of information to create its tools such as income, expenses, disposable income, debts etc they are all different data but all need a header title and a certain number of input fields of certain types. This function generalizes those "units". See wireframe for visual example.  Function to create input fields that contain a header, paragraph, and variable number of input elements.
 #'
 #' Required Parameters:
 #' @param header General title for all the information needed in this unit
 #' @param button_label label on the submission button. Note this should be the second to last parameter
 #' @param button_id ID to call  the submitted information in this input field/s. Note this should be the last parameter
 #'
-#' @return Final stuff
-# Function to create input fields that contain a header, paragraph, and variable number of input elements.
+#' @return creates and displays the input units components wanted in the UI of shiny
 createInputUnit <- function(header, ..., button_label, button_id) {
   fluidRow(h3(header),
             p(paste("Enter your", tolower(header), "details:")),
@@ -71,16 +70,41 @@ sumMinimums <- function(debt_df, index){
   return(x)
 }
 
+#' Title Find Previous Balance
+#' @description Used to retreive a certain debt's previous month value. Typically used for the balance but made allow any column retrival
+#'
+#' @param month_index Current or consequent month for which we want to get the previous balance for
+#' @param title The title of the debt we want to retrieve information for
+#' @param result_df Data frame where we can find the data with all previous month information stored
+#' @param column_retrival Name of column we want to retrieve from
+#'
+#' @return Generally it is the previous value of the requested debt from the requested column. This will be usually the previous month balance.
+#' @export
+#'
+#' @examples
 findPreviousBalance <- function(month_index, title, result_df, column_retrival){
   print(title)
   #subset the row from the previous month with a certain title
   subset_previous_entry <- result_df[result_df$month == month_index-1 & result_df$title == title , ]
-  # assuming id record returns just 1 bc there will always be only 1 entry for each debt for each month
+  # assuming ID record returns just 1 bc there will always be only 1 entry for each debt for each month
   # balance will be the new balance of the located record
   balance <- subset_previous_entry[ ,column_retrival]
   return(balance)
 }
 
+#' Title Calculate Paid Balance
+#'
+#' @description Calculates the updated new balance for a certain debt after monthly payment depending if we will use extra money to tackle the debt or if we will just pay a minimum payment
+#'
+#' @param tackle boolean value that signals if this debt will use disposible income to tackle the debt faster
+#' @param original_balance starting balance for the debt in this month
+#' @param disposable_income amount of disposible income available to this debt
+#' @param minimum The minimum payment that must be paid to this card
+#'
+#' @return a data frame with columns: balance, the updated debt balance / residual: amount of disposable income left over after this debt / debtWiped: boolean value to know if debt has been completely zeroed
+#' @export
+#'
+#' @examples
 calculatePaidBalance <- function(tackle, original_balance, disposable_income, minimum) {
   #if we will pay more than minimum
   if(tackle == TRUE){
@@ -107,11 +131,32 @@ calculatePaidBalance <- function(tackle, original_balance, disposable_income, mi
   }
 }
 
+#' Title Calculate Interest
+#'@description Calculates the interest added to the balance given the debt ending balance and its calculated monthly rate.
+#'
+#' @param current_balance current ending balance for the specific debt for the month
+#' @param APR Yearly rate of interest
+#'
+#' @return amount of interest that would be added to the total amount of debt for this month
+#' @export
+#'
+#' @examples
 calculateInterest <- function(current_balance, APR){
   monthly_apr <- (APR/100.0 ) /12.0
   return(current_balance*monthly_apr)
 }
 
+#' Title Calculate the Total Balance
+#'
+#' @description Calculates the total balance owed from all different debts
+#'
+#' @param current_month month we want to calculate the total debt balance
+#' @param result_df Data frame containing all month's debt balance informations
+#'
+#' @return the amount of total debt balance owed throughout all debt accounts
+#' @export
+#'
+#' @examples
 calculateTotalBalance <- function(current_month, result_df){
   #subset all the rows where month equals current month
   month_subset <- result_df[result_df$month == current_month, ]
@@ -119,6 +164,16 @@ calculateTotalBalance <- function(current_month, result_df){
   return(sum(month_subset$new_balance))
 }
 
+#' Title Simulate Progress
+#'@description Simulates the payoff journey of all the debts submitted through the UI if they were to use their disposable money each month to implement the snowball method
+#'
+#' @param debt_df Data frame containing all initial debt information such as debt title, balance, APR and minimum
+#' @param disposable_df Data frame that contains the disposible income information the user will have available after their budgetted needs
+#'
+#' @return A data frame with a row for each debt's progress per month. With columns ....
+#' @export
+#'
+#' @examples
 simulateProgress <- function(debt_df, disposable_df) {
 
   result_df <- data.frame(
@@ -200,6 +255,18 @@ simulateProgress <- function(debt_df, disposable_df) {
   return(list(timeline = result_df, monthly_disposable = md_df))
 }
 
+
+#' No Change Simulation
+#'
+#' @description Creates a simulation of just paying minimum payments for the debt information given in the amount of month's they could be debt free using disposible income
+#'
+#' @param total_months month it would take user to tackle all their debt given they use their disposible income agressively
+#' @param debt_df data frame containing all basic debt information collected from the user. (title, balance, APR, minimum payment)
+#'
+#' @return a data frame with a row for each debt's progress per month for total_months amount of months.
+#' @export
+#'
+#' @examples
 noChangeSimulation <- function(total_months, debt_df){
   result_df <- data.frame(
     month = numeric(),          # Month in the progress
@@ -284,7 +351,7 @@ ui <- dashboardPage(
               actionButton("process_debts", "Get Debt Timeline"),
               conditionalPanel(
                 condition = "input.process_debts > 0",
-                sliderInput("Timeline", "Move Through The Months", min = 0, max = 30, value = 1)
+                sliderInput("Timeline", "Move Through The Months", min = 0, max = 20, value = 1)
               )
             ),
             column(
@@ -371,14 +438,14 @@ server <- function(input, output) {
   timeline_w_min <- reactiveVal(data.frame(month = numeric() ,title = character(), original_balance = numeric(), added_interest = numeric(),new_balance = numeric(),new_balance_min = numeric()))
   timeline_disposable <-reactiveVal(data.frame(month = numeric(),disposable = numeric()))
 
+  #storing given disposible income into disposable() reactive
   observeEvent(input$disposable_submit, {
     #format observed event result into our income format and bind it
     new_disposable <- data.frame(amount = input$disposable_income)
     disposable(rbind(disposable(), new_disposable))
-    print("disposable submit")
-    print(disposable())
   })
 
+  # storing individual debt information submitted by user into debts() reactive
   observeEvent(input$debt_submit, {
     #format observed event result into our expense format and bind it
     new_debt <- data.frame(title= input$debt_title, balance = input$remaining_balance, APR = input$apr, minimum = input$monthly_min)
@@ -387,6 +454,7 @@ server <- function(input, output) {
     print(debts())
   })
 
+  #actives the simulation given the information collected from the other above events
   observeEvent(input$process_debts, {
     dis_df <- disposable()
     debt_info <- debts()
@@ -442,7 +510,6 @@ server <- function(input, output) {
 
   descriptions <- c("Disposable Income", "Total Debt Balance", "Interest Saved", "Minimum Freed")
   box_titles <- c("DispoBox", "TotalBox", "IntSavedBox", "MinimumFreedBox")
-
 
   observeEvent(input$Timeline,{
 
