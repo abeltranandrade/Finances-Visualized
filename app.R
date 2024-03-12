@@ -319,6 +319,61 @@ noChangeSimulation <- function(total_months, debt_df){
   return(result_df)
 }
 
+noChangeNoBoundary <- function(debt_df){
+  result_df <- data.frame(
+    month = numeric(),          # Month in the progress
+    title = character(),        # Debt ID title
+    added_interest_min = numeric(),    # Interest added at the end of month balance
+    new_balance = numeric()       # End of month balance with interest added
+  )
+
+  total_balance <- sum(debt_df$balance)
+  month_index <- 0
+
+  while(total_balance > 0) {
+    #Update month, total disposable money, and activate the disposable indicator.
+    month_index <- month_index + 1
+
+    #create a row for each debt
+    for(debt in 1:nrow(debt_df)){
+      #get correct current balance
+      if(month_index == 1){current_balance <- debt_df[debt,]$balance}
+      else{current_balance <- findPreviousBalance(month_index, debt_df[debt,]$title, result_df, "new_balance")}
+
+      #this debt has already been wiped fill in the row with zeroes and next
+      if(current_balance == 0){
+        temp_row <- data.frame(
+          month = month_index,
+          title = debt_df[debt,]$title,
+          added_interest_min = 0,
+          new_balance = 0)
+        result_df <- rbind(result_df, temp_row)
+        next
+      }
+
+      #calculate decreasing this debt original balance for this month without disposable income
+      decreasedBalance <- calculatePaidBalance(tackle = FALSE, current_balance, 0, debt_df[debt,]$minimum)
+
+      #calculate interest using balance after og balance paid down
+      dec_balance <- decreasedBalance$balance
+      interest <- calculateInterest(dec_balance, debt_df[debt,]$APR)
+
+      #create new row and bind to results
+      temp_row <- data.frame(
+        month = month_index,
+        title = debt_df[debt,]$title,
+        added_interest_min = round(interest,2),
+        new_balance = round(dec_balance + interest,2))
+      result_df <- rbind(result_df, temp_row)
+    }
+    #calculate the total debt balance left after this month
+    total_balance <- calculateTotalBalance(month_index, result_df)
+  }
+  #change the name of the column to be able to join it with other simulation. Cannot do it to start because it breaks calculateTotalBalance(), this is easier
+  colnames(result_df)[colnames(result_df) == "new_balance"] <- "new_balance_min"
+  return(result_df)
+}
+
 # Function to generate colored rows based on month value (FOR LATER)
 color_rows <- function(x) {
   ifelse(x %% 2 == 0, "background-color: white", "background-color: blue")
@@ -512,13 +567,24 @@ server <- function(input, output, session) {
     sorted_df <- timeline() %>% arrange(title)
     print(sorted_df)
 
-    #simulating paying minimum only
-    min_only <- noChangeSimulation(nrow(timeline()), debt_info)
+    #simulating paying minimum only (I AM CALLING MIN ONLY WRONG LOL IT SHOULDNT BE NROW BUT MAX VALUE OF THE MONTH COLUMN LOL)
+    #min_only <- noChangeSimulation(nrow(timeline()), debt_info)
+    min_only_more_months <- noChangeNoBoundary(debt_info)
+    min_only <- min_only_more_months[min_only_more_months$month <= max(timeline()$month), ]
+
 
     #merging both dataframes together
     all_together <- merge(timeline(), min_only, by = c("month", "title"))
+    print("@@@@@@@@@@@@@@@@this is all together ")
     print(all_together)
     timeline_w_min(rbind(timeline_w_min(),all_together))
+
+    print("_______________________________________")
+    print("this is the non-limit simulation")
+    print(min_only_more_months)
+    subset_data <- min_only_more_months[min_only_more_months$month > max(timeline()$month), ]
+    all_saved_interest <- sum(min_only_more_months$added_interest)
+    print(all_saved_interest)
 
     #slider will max out at the maximum amount of months of our simulation
     updateSliderInput(session, "Timeline", max = max(timeline()$month))
