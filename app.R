@@ -299,6 +299,12 @@ noChangeSimulation <- function(total_months, debt_df){
     }
   return(result_df)
 }
+
+# Function to generate colored rows based on month value (FOR LATER)
+color_rows <- function(x) {
+  ifelse(x %% 2 == 0, "background-color: white", "background-color: blue")
+}
+
 # Define UI
 ui <- dashboardPage(
   dashboardHeader(title = "Finances Visualized"),
@@ -352,6 +358,10 @@ ui <- dashboardPage(
               conditionalPanel(
                 condition = "input.process_debts > 0",
                 sliderInput("Timeline", "Move Through The Months", min = 0, max = 20, value = 1)
+              ),
+              conditionalPanel(#(FOR LATER)
+                condition = "input.process_debts > 0",
+                downloadButton("downloadPDF", "Download PDF")
               )
             ),
             column(
@@ -375,7 +385,7 @@ ui <- dashboardPage(
 )
 
 # Define server logic (not required for this example)
-server <- function(input, output) {
+server <- function(input, output, session) {
 
   ####budget tab
 
@@ -481,7 +491,11 @@ server <- function(input, output) {
     all_together <- merge(timeline(), min_only, by = c("month", "title"))
     print(all_together)
     timeline_w_min(rbind(timeline_w_min(),all_together))
+
+    #slider will max out at the maximum amount of months of our simulation
+    updateSliderInput(session, "Timeline", max = max(timeline()$month))
   })
+
 
   # Render the plot
   output$lineChart <- renderPlotly({
@@ -508,15 +522,17 @@ server <- function(input, output) {
     #            facet_col = ~title)
   })
 
+
   descriptions <- c("Disposable Income", "Total Debt Balance", "Interest Saved", "Minimum Freed")
   box_titles <- c("DispoBox", "TotalBox", "IntSavedBox", "MinimumFreedBox")
 
   observeEvent(input$Timeline,{
 
-    # transformation to get disposable value box value
+    # transformation to get disposable value box for a certain month
     disposable_value <- timeline_disposable() %>%
       filter(month == input$Timeline)
 
+    #
     total_debt <- timeline() %>%
       filter(month == input$Timeline)
     total_debt_balance <- sum(total_debt$new_balance)
