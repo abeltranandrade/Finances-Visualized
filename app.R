@@ -28,6 +28,15 @@ createInputUnit <- function(header, ..., button_label, button_id) {
   )
 }
 
+updateInputUnit <- function(session, ...) {
+           lapply(list(...), function(input_info) {
+             switch(input_info$type,
+                    numeric = updateNumericInput(session,input_info$id, value = 0),
+                    text = updateTextInput(session,input_info$id, value = "")
+             )
+           })
+}
+
 #' Title
 #' @description Where you create how the value boxes look and where they display information. It can be expanded later to become more general and have different templates.
 #'
@@ -305,6 +314,7 @@ color_rows <- function(x) {
   ifelse(x %% 2 == 0, "background-color: white", "background-color: blue")
 }
 
+
 # Define UI
 ui <- dashboardPage(
   dashboardHeader(title = "Finances Visualized"),
@@ -462,6 +472,11 @@ server <- function(input, output, session) {
     debts(rbind(debts(), new_debt))
     print("debt submit")
     print(debts())
+    updateInputUnit(session,
+                    list(label = "Debt Name", id = "debt_title", type = "text"),
+                    list(label = "Total Remaining Balance", id = "remaining_balance", type = "numeric"),
+                    list(label = "APR", id = "apr", type = "numeric"),
+                    list(label = "Monthly Minimum", id = "monthly_min", type = "numeric"))
   })
 
   #actives the simulation given the information collected from the other above events
