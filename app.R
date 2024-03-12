@@ -69,6 +69,12 @@ multipleValueBoxes <- function(id_titles){
     })
 }
 
+checkRequiredColumns <- function(functionName, dataset, required_names) {
+  if(!all(required_names %in% names(dataset))){
+    functionId <- paste("In the function ", functionName)
+    stop(paste(functionId, ", the dataset passed does not have one of the columns required"))
+  }
+}
 sumMinimums <- function(debt_df, index){
   if(index == 0){return(0)}
   # index the rows correctly given index (indexing breaks in case 1:1)
@@ -92,7 +98,7 @@ sumMinimums <- function(debt_df, index){
 #'
 #' @examples
 findPreviousBalance <- function(month_index, title, result_df, column_retrival){
-  print(title)
+  checkRequiredColumns("findPreviousBalance", result_df, list("month", "title", column_retrival))
   #subset the row from the previous month with a certain title
   subset_previous_entry <- result_df[result_df$month == month_index-1 & result_df$title == title , ]
   # assuming ID record returns just 1 bc there will always be only 1 entry for each debt for each month
@@ -167,6 +173,7 @@ calculateInterest <- function(current_balance, APR){
 #'
 #' @examples
 calculateTotalBalance <- function(current_month, result_df){
+  checkRequiredColumns("calculateTotalBalance", result_df, list("month", "new_balance"))
   #subset all the rows where month equals current month
   month_subset <- result_df[result_df$month == current_month, ]
   #return the sum of the month's new balance column
@@ -184,6 +191,9 @@ calculateTotalBalance <- function(current_month, result_df){
 #'
 #' @examples
 simulateProgress <- function(debt_df, disposable_df) {
+  #validate the columns we need are in the parametered data frames
+  checkRequiredColumns("SimulateProgress-Debt_df", debt_df, list( "title", "balance","APR", "minimum"))
+  checkRequiredColumns("SimulateProgress-Disposable_df", disposable_df, list( "amount"))
 
   result_df <- data.frame(
     month = numeric(),          # Month in the progress
