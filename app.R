@@ -253,7 +253,7 @@ simulateProgress <- function(debt_df, disposable_df) {
         month = month_index,
         title = debt_df[debt,]$title,
         original_balance = current_balance,
-        added_interest = round(interest),
+        added_interest = round(interest, 2),
         new_balance = round(dec_balance + interest,2),
         extra = round(total_disposable - decreasedBalance$residual,2))
 
@@ -398,7 +398,7 @@ ui <- dashboardPage(
               actionButton("process_debts", "Get Debt Timeline"),
               conditionalPanel(
                 condition = "input.process_debts > 0",
-                sliderInput("Timeline", "Move Through The Months", min = 0, max = 20, value = 1)
+                sliderInput("Timeline", "Move Through The Months", min = 0, max = 20, value = 0)
               ),
               conditionalPanel(#(FOR LATER)
                 condition = "input.process_debts > 0",
@@ -545,8 +545,13 @@ server <- function(input, output, session) {
 
     #sum all the interest would have acrued for the user if he only used the minimum payment
     subset_data <- min_only_all_months[min_only_all_months$month > max(timeline()$month), ]
-    all_saved_interest <- sum(subset_data$added_interest)
+    by_debt_saved_interest <- subset_data %>%
+      group_by(title) %>%
+      summarise(interest_saved = sum(added_interest_min))
+    all_saved_interest <- sum(subset_data$added_interest_min)
     print(all_saved_interest)
+    print(by_debt_saved_interest)
+    print(subset_data)
 
     #slider will max out at the maximum amount of months of our simulation
     updateSliderInput(session, "Timeline", max = max(timeline()$month))
@@ -584,20 +589,33 @@ server <- function(input, output, session) {
 
   observeEvent(input$Timeline,{
 
-    # transformation to get disposable value box for a certain month
+    print("$$$$$$$$$$$$$$$$$$$$$$$")
+    print("timeline")
+    print(timeline())
+    print("timeline with minimum")
+    print(timeline_w_min())
+    print("Timeline disposable")
+    print(timeline_disposable())
+
+    # transformation to get disposable value box for a certain month. Find the disposable for this month
     disposable_value <- timeline_disposable() %>%
       filter(month == input$Timeline)
 
-    #
+    #Find total debt balance for x month on the slider
     total_debt <- timeline() %>%
       filter(month == input$Timeline)
     total_debt_balance <- sum(total_debt$new_balance)
-    total_debt_interest <- sum(total_debt$added_interest)
 
+    # filter all months up to the x slider value and sum its interest while tackling simulation and the interest while paying minimum payments
     total_debt_min <- timeline_w_min() %>%
-      filter(month == input$Timeline)
+      filter(month <= input$Timeline)
+    print("total debt minimum dataset with equal (I think its wrong)")
+    print(total_debt_min)
     total_debt_interest_min <- sum(total_debt_min$added_interest_min)
-
+    total_debt_interest <- sum(total_debt_min$added_interest)
+    print("total interest are minimum only then tackling")
+    print(total_debt_interest_min)
+    print(total_debt_interest)
     #Identify debts that have been wiped in this month, then get their minimums and sum them
     minimum_wiped <- timeline_w_min() %>%
       mutate(Wiped = new_balance == 0) %>%
