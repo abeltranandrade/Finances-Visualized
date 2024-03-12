@@ -286,40 +286,7 @@ simulateProgress <- function(debt_df, disposable_df) {
 #' @export
 #'
 #' @examples
-noChangeSimulation <- function(total_months, debt_df){
-  result_df <- data.frame(
-    month = numeric(),          # Month in the progress
-    title = character(),        # Debt ID title
-    added_interest_min = numeric(),
-    new_balance_min = numeric()       # End of month balance with interest added
-  )
-
-  for(month in 1:total_months){
-    for(debt in 1:nrow(debt_df)){
-
-      # Edge case to find the initial month's debt balance
-      if(month == 1){current_balance <- debt_df[debt,]$balance }
-      else{current_balance <- findPreviousBalance(month, debt_df[debt,]$title, result_df, "new_balance_min")}
-
-      #simulate minimum payment
-      paidDown <- calculatePaidBalance(tackle = FALSE, current_balance,0, debt_df[debt,]$minimum)
-      dec_balance <- paidDown$balance
-      interest <- calculateInterest(dec_balance, debt_df[debt,]$APR)
-
-      #save results
-      temp_row <- data.frame(
-        month = month,
-        title = debt_df[debt, ]$title,
-        added_interest_min = round(interest, 2),
-        new_balance_min = round(dec_balance + interest, 2)
-      )
-      result_df <- rbind(result_df, temp_row)
-    }
-    }
-  return(result_df)
-}
-
-noChangeNoBoundary <- function(debt_df){
+noChangeSimulation <- function(debt_df){
   result_df <- data.frame(
     month = numeric(),          # Month in the progress
     title = character(),        # Debt ID title
@@ -331,12 +298,11 @@ noChangeNoBoundary <- function(debt_df){
   month_index <- 0
 
   while(total_balance > 0) {
-    #Update month, total disposable money, and activate the disposable indicator.
+    #start a new month
     month_index <- month_index + 1
-
     #create a row for each debt
     for(debt in 1:nrow(debt_df)){
-      #get correct current balance
+      # Edge case to find the initial month's debt balance
       if(month_index == 1){current_balance <- debt_df[debt,]$balance}
       else{current_balance <- findPreviousBalance(month_index, debt_df[debt,]$title, result_df, "new_balance")}
 
@@ -567,23 +533,19 @@ server <- function(input, output, session) {
     sorted_df <- timeline() %>% arrange(title)
     print(sorted_df)
 
-    #simulating paying minimum only (I AM CALLING MIN ONLY WRONG LOL IT SHOULDNT BE NROW BUT MAX VALUE OF THE MONTH COLUMN LOL)
-    #min_only <- noChangeSimulation(nrow(timeline()), debt_info)
-    min_only_more_months <- noChangeNoBoundary(debt_info)
-    min_only <- min_only_more_months[min_only_more_months$month <= max(timeline()$month), ]
+    #simulating paying minimum only
+    min_only_all_months <- noChangeSimulation(debt_info)
 
 
-    #merging both dataframes together
-    all_together <- merge(timeline(), min_only, by = c("month", "title"))
-    print("@@@@@@@@@@@@@@@@this is all together ")
-    print(all_together)
+    #Creating a merged data frame that has both the disposible income simulation data(timeline()) and the minimum payment only simulation for x amount of months and store in timeline_w_min
+    min_only_process_months <- min_only_all_months[min_only_all_months$month <= max(timeline()$month), ]
+    all_together <- merge(timeline(), min_only_process_months, by = c("month", "title"))
     timeline_w_min(rbind(timeline_w_min(),all_together))
+    print(all_together)
 
-    print("_______________________________________")
-    print("this is the non-limit simulation")
-    print(min_only_more_months)
-    subset_data <- min_only_more_months[min_only_more_months$month > max(timeline()$month), ]
-    all_saved_interest <- sum(min_only_more_months$added_interest)
+    #sum all the interest would have acrued for the user if he only used the minimum payment
+    subset_data <- min_only_all_months[min_only_all_months$month > max(timeline()$month), ]
+    all_saved_interest <- sum(subset_data$added_interest)
     print(all_saved_interest)
 
     #slider will max out at the maximum amount of months of our simulation
