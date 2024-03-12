@@ -20,7 +20,7 @@ createInputUnit <- function(header, ..., button_label, button_id) {
             p(paste("Enter your", tolower(header), "details:")),
             lapply(list(...), function(input_info) {
              switch(input_info$type,
-                    numeric = numericInput(input_info$id, label = input_info$label, value = 0),
+                    numeric = numericInput(input_info$id, label = input_info$label, value = 0, min = 0),
                     text = textInput(input_info$id, label = input_info$label, value = "")
               )
             }),
@@ -467,16 +467,19 @@ server <- function(input, output, session) {
 
   # storing individual debt information submitted by user into debts() reactive
   observeEvent(input$debt_submit, {
-    #format observed event result into our expense format and bind it
+    #verify each debt name is unique
+    debt_exists <- any(debts()$title == input$debt_title)
+    if (debt_exists) {showNotification("Please enter a unique name for this debt, please resubmit the infomation", type = "error")}
+    else{
+    #format observed event result into our expense format and bind it, then clear the input boxes
     new_debt <- data.frame(title= input$debt_title, balance = input$remaining_balance, APR = input$apr, minimum = input$monthly_min)
     debts(rbind(debts(), new_debt))
-    print("debt submit")
-    print(debts())
     updateInputUnit(session,
                     list(label = "Debt Name", id = "debt_title", type = "text"),
                     list(label = "Total Remaining Balance", id = "remaining_balance", type = "numeric"),
                     list(label = "APR", id = "apr", type = "numeric"),
                     list(label = "Monthly Minimum", id = "monthly_min", type = "numeric"))
+    }
   })
 
   #actives the simulation given the information collected from the other above events
