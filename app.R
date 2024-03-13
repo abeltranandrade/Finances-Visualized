@@ -64,9 +64,21 @@ createValueBox <- function(title, value ) {
 #'
 #' @examples
 multipleValueBoxes <- function(id_titles){
+  fluidRow(
     lapply(id_titles, function(box_title){
       valueBoxOutput(box_title, width = 3)
     })
+  )
+}
+
+createTitleSection <- function(heading_text, background_color, box_content, font_color, padding, box_height, margin_bottom = "20px") {
+       fluidRow(
+         div(style = paste0("background-color: ", background_color, "; color: ", font_color, "; padding: ", padding, "; height: ", box_height, "; margin-bottom: ", margin_bottom, ";"),
+                    h3(heading_text),
+                    h4(box_content)
+                )
+       )
+
 }
 
 checkRequiredColumns <- function(functionName, dataset, required_names) {
@@ -408,9 +420,12 @@ ui <- dashboardPage(
               width = 8,
               #plotlyOutput("lineChart")
               multipleValueBoxes(c("DispoBox", "TotalBox", "IntSavedBox", "MinimumFreedBox")),
-              DTOutput("monthly_total_tbl"),
-              plotlyOutput("bar_total"),
-              plotlyOutput("dis_vs_min_bar")
+              createTitleSection("Debts Being Focused", "#FFFF33", "These debts should be paid off rapidly using their original minimum payment and disposible income ", "black", box_height = "100px", padding = "3px", margin_bottom = "20px"),
+              createTitleSection("Debts on Minimum Payments ", "#DC143C", "Pay the minimum payments on these debts and focus all your extra money on the ones above this month ", "white", box_height = "100px", padding = "3px", margin_bottom = "20px"),
+              createTitleSection("Paid Off Debts! ", "#238823", "These debts are being paid off rapidly using their original minimum payment and disposible income ", "white", box_height = "100px", padding = "3px", margin_bottom = "20px")
+              # DTOutput("monthly_total_tbl"),
+              # plotlyOutput("bar_total"),
+              # plotlyOutput("dis_vs_min_bar"),
             )
           )
         )
@@ -638,6 +653,9 @@ server <- function(input, output, session) {
     }
     #value boxes section end
 
+
+    #This is code for the previous UI, might still use sections of it but want to hide it for now so it does not distract me.
+    ###################
     total_bal_mon <- timeline() %>%
       filter(month == input$Timeline) %>%
       select(title,original_balance,extra, new_balance) %>%
