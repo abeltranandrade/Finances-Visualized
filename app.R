@@ -534,7 +534,7 @@ server <- function(input, output, session) {
     }
   })
 
-  #actives the simulation given the information collected from the other above events
+  #actives the simulations given the information collected from the other above events
   observeEvent(input$process_debts, {
     dis_df <- disposable()
     debt_info <- debts()
@@ -574,7 +574,7 @@ server <- function(input, output, session) {
     #this data
    timeline_after_balance_paid_off_statinfo <- timeline_w_min() %>%
       filter(new_balance == 0) %>%
-      left_join(debts() %>% select(title, minimum), by = "title") %>%
+      #left_join(debts() %>% select(title), by = "title") %>%
       left_join(by_debt_saved_interest %>% select(title, interest_saved_by_wiping), by = "title")
    balance_paid_off_subset(rbind(balance_paid_off_subset(), timeline_after_balance_paid_off_statinfo))
    print(balance_paid_off_subset)
@@ -697,6 +697,17 @@ server <- function(input, output, session) {
     output[["paid_debt_df"]] <- renderDT({datatable(paid_df, options = list(pageLength = 5),
                                           colnames = c("Debt Title","Month Debt was Paid Off", "Interest Saved By Not Carrying a Balance Anymore")) %>%
                                           formatCurrency(columns = c(3), currency = "$", interval = 3) })
+
+    print("$$$$$$$$$$$$$$$$$$$$$$$")
+    print("timeline")
+    print(timeline())
+    print("timeline with minimum")
+    print(timeline_w_min())
+    print("Timeline disposable")
+    print(timeline_disposable())
+    print("balance_paid_off_subset")
+    print(balance_paid_off_subset())
+
 
     #This is code for the previous UI, might still use sections of it but want to hide it for now so it does not distract me.
     ###################
