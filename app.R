@@ -136,9 +136,14 @@ calculatePaidBalance <- function(tackle, original_balance, disposable_income, mi
   #if we will pay more than minimum
   if(tackle == TRUE){
     paidDown <- original_balance - minimum
-
+    #If you payoff the current balance with the minimum payment, you did not use the disposible income so return it as residual (In this case, we would not consider the remainder of the minimum payment we freed into money we can use to pay more debts, I feel its going to confuse the user even more seeing inconsistencies like that. We will use it the following month anyway and its not exactly perfect)
+    if(paidDown <= 0){
+      return(data.frame(balance = 0, residual = disposable_income, debtWiped = TRUE))
+    }
     # if the current balance(after minimum) can be fully paid off with disposable income available
     if(paidDown <= disposable_income){
+      print("I am supposed to get a residual which is")
+      print(disposable_income - paidDown)
       return(data.frame(balance = 0, residual = disposable_income - paidDown, debtWiped = TRUE))
     }
     else{
@@ -149,7 +154,7 @@ calculatePaidBalance <- function(tackle, original_balance, disposable_income, mi
   }
   else{
     paidDown <- original_balance - minimum
-    if(paidDown < 0){
+    if(paidDown <= 0){
       return(data.frame(balance = 0, residual = 0, debtWiped = TRUE))
     }else{
       return(data.frame(balance = paidDown, residual = 0, debtWiped = FALSE))
