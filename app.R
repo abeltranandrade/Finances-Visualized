@@ -421,8 +421,11 @@ ui <- dashboardPage(
               #plotlyOutput("lineChart")
               multipleValueBoxes(c("DispoBox", "TotalBox", "IntSavedBox", "MinimumFreedBox")),
               createTitleSection("Debts Being Focused", "#FFFF33", "These debts should be paid off rapidly using their original minimum payment and disposible income ", "black", box_height = "100px", padding = "3px", margin_bottom = "20px"),
+              fluidRow(DTOutput("focus_debt_df")),
               createTitleSection("Debts on Minimum Payments ", "#DC143C", "Pay the minimum payments on these debts and focus all your extra money on the ones above this month ", "white", box_height = "100px", padding = "3px", margin_bottom = "20px"),
-              createTitleSection("Paid Off Debts! ", "#238823", "These debts are being paid off rapidly using their original minimum payment and disposible income ", "white", box_height = "100px", padding = "3px", margin_bottom = "20px")
+              fluidRow(DTOutput("minimum_debt_df")),
+              createTitleSection("Paid Off Debts! ", "#238823", "Congratulations! Now see how much money you saved on interest :) ", "white", box_height = "100px", padding = "3px", margin_bottom = "20px"),
+              fluidRow(DTOutput("paid_debt_df"))
               # DTOutput("monthly_total_tbl"),
               # plotlyOutput("bar_total"),
               # plotlyOutput("dis_vs_min_bar"),
@@ -499,7 +502,7 @@ server <- function(input, output, session) {
 
   disposable <- reactiveVal(data.frame(amount =0))
   debts <- reactiveVal(data.frame(title= character(), balance = numeric(), APR = numeric(), minimum = numeric()))
-  timeline <- reactiveVal(data.frame(month = numeric() ,title = character(), original_balance = numeric(), added_interest = numeric(),new_balance = numeric(), extra = numeric()))
+  timeline <- reactiveVal(data.frame(month = numeric() ,title = character(), original_balance = numeric(), added_interest = numeric(),new_balance = numeric(), extra = numeric(), minimum = numeric()))
   timeline_w_min <- reactiveVal(data.frame(month = numeric() ,title = character(), original_balance = numeric(), added_interest = numeric(),new_balance = numeric(),new_balance_min = numeric()))
   timeline_disposable <-reactiveVal(data.frame(month = numeric(),disposable = numeric()))
   balance_paid_off_subset <- reactiveVal(data.frame(month = numeric() ,title = character(), original_balance = numeric(), added_interest = numeric(),new_balance = numeric(), extra = numeric(), added_interest_min = numeric(), new_balance_min = numeric(), minimum = numeric(), interest_saved_by_wiping = numeric()))
@@ -541,6 +544,8 @@ server <- function(input, output, session) {
 
     #run simulation and store in reactive values
     simulation <- simulateProgress(debt_info,dis_df)
+    simulation$timeline <- simulation$timeline %>%
+      left_join(debts() %>% select(title, minimum), by = "title")
     timeline(rbind(timeline(),simulation$timeline))
     timeline_disposable(rbind(timeline_disposable(), simulation$monthly_disposable))
     #print(timeline_disposable())
@@ -653,6 +658,32 @@ server <- function(input, output, session) {
     }
     #value boxes section end
 
+    focus_df <- timeline() %>%
+      filter(month  == input$Timeline & extra > 0) %>%
+      select(title, original_balance, extra, minimum, new_balance)
+
+      minimum_df <- timeline() %>%
+        filter(month  == input$Timeline & extra <= 0 & new_balance != 0) %>%
+        select(title, original_balance, minimum, added_interest , new_balance)
+
+      # Create a new dataframe with unique titles and their corresponding interest_saved_values
+      paid_df <- timeline() %>%
+        filter(month == input$Timeline & new_balance == 0 ) %>%
+        left_join(distinct(balance_paid_off_subset(), title, interest_saved_by_wiping), by  = "title") %>%
+        select(title, interest_saved_by_wiping)
+
+
+    output[["focus_debt_df"]] <- renderDT({datatable(focus_df, options = list(pageLength = 10),
+                                                     colnames = c("Debt Title", "Month Starting Balance", "Disposable Income Towards Debt","Minimum Payment", "Month New Balance")) %>%
+                                                    formatCurrency(columns = c(2:5), currency = "$", interval = 3) })
+
+    output[["minimum_debt_df"]] <- renderDT({datatable(minimum_df, options = list(pageLength = 10),
+                                          colnames = c("Debt Title", "Month Starting Balance","Minimum Payment","Interest Added This Month", "Month New Balance")) %>%
+                                          formatCurrency(columns = c(2:5), currency = "$", interval = 3)})
+
+    output[["paid_debt_df"]] <- renderDT({datatable(paid_df, options = list(pageLength = 10),
+                                          colnames = c("Debt Title", "Interest Saved By Paying Faster")) %>%
+                                          formatCurrency(columns = c(2), currency = "$", interval = 3) })
 
     #This is code for the previous UI, might still use sections of it but want to hide it for now so it does not distract me.
     ###################
