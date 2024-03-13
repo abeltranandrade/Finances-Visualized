@@ -622,10 +622,16 @@ server <- function(input, output, session) {
     disposable_value <- timeline_disposable() %>%
       filter(month == input$Timeline)
 
-    #Find total debt balance for x month on the slider
-    total_debt <- timeline() %>%
+
+    current_month_debt_info <- timeline() %>%
       filter(month == input$Timeline)
-    total_debt_balance <- sum(total_debt$new_balance)
+    #Find total debt balance for x month on the slider
+    total_debt_balance <- sum(current_month_debt_info$new_balance)
+
+    #Find total minimum payments of the paid off debts for x month on the slider
+    minimum_wiped_rows <- current_month_debt_info %>%
+      filter(new_balance == 0)
+    minimum_wiped_sum <- sum(minimum_wiped_rows$minimum)
 
     # filter all months up to the x slider value and sum its interest while tackling simulation and the interest while paying minimum payments(interest_saved_progress)
     months_progressed <- timeline_w_min() %>%
@@ -635,8 +641,6 @@ server <- function(input, output, session) {
     month_paid_off_info <- balance_paid_off_subset() %>%
       filter(month == input$Timeline)
 
-    #Find total minimum payments were wiped this month instance
-    minimum_wiped_sum <- sum(month_paid_off_info$minimum)
 
     #Calculate the interest saved, both while progressing and without all the extra months of interest
     interest_saved_progress <- sum(months_progressed$added_interest_min) - sum(months_progressed$added_interest)
