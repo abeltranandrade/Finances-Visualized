@@ -142,8 +142,6 @@ calculatePaidBalance <- function(tackle, original_balance, disposable_income, mi
     }
     # if the current balance(after minimum) can be fully paid off with disposable income available
     if(paidDown <= disposable_income){
-      print("I am supposed to get a residual which is")
-      print(disposable_income - paidDown)
       return(data.frame(balance = 0, residual = disposable_income - paidDown, debtWiped = TRUE))
     }
     else{
@@ -563,7 +561,7 @@ server <- function(input, output, session) {
     min_only_process_months <- min_only_all_months[min_only_all_months$month <= max(timeline()$month), ]
     all_together <- merge(timeline(), min_only_process_months, by = c("month", "title"))
     timeline_w_min(rbind(timeline_w_min(),all_together))
-    print(all_together)
+    #print(all_together)
 
     #sum all the interest would have acrued for the user if he only used the minimum payment
     subset_data <- min_only_all_months[min_only_all_months$month > max(timeline()$month), ]
@@ -622,12 +620,10 @@ server <- function(input, output, session) {
     disposable_value <- timeline_disposable() %>%
       filter(month == input$Timeline)
 
-
     current_month_debt_info <- timeline() %>%
       filter(month == input$Timeline)
     #Find total debt balance for x month on the slider
     total_debt_balance <- sum(current_month_debt_info$new_balance)
-
     #Find total minimum payments of the paid off debts for x month on the slider
     minimum_wiped_rows <- current_month_debt_info %>%
       filter(new_balance == 0)
@@ -640,7 +636,6 @@ server <- function(input, output, session) {
     #get rows where balance is already paid off and get minimum and interest after payoff information
     month_paid_off_info <- balance_paid_off_subset() %>%
       filter(month == input$Timeline)
-
 
     #Calculate the interest saved, both while progressing and without all the extra months of interest
     interest_saved_progress <- sum(months_progressed$added_interest_min) - sum(months_progressed$added_interest)
@@ -667,32 +662,41 @@ server <- function(input, output, session) {
     }
     #value boxes section end
 
+    # Create a dataframe for the paid table displayed
     focus_df <- timeline() %>%
       filter(month  == input$Timeline & extra > 0) %>%
       select(title, original_balance, extra, minimum, new_balance)
 
+    # Create a dataframe for the paid table displayed
       minimum_df <- timeline() %>%
         filter(month  == input$Timeline & extra <= 0 & new_balance != 0) %>%
         select(title, original_balance, minimum, added_interest , new_balance)
 
-      # Create a new dataframe with unique titles and their corresponding interest_saved_values
+      # Create a dataframe for the paid table displayed
       paid_df <- timeline() %>%
-        filter(month == input$Timeline & new_balance == 0 ) %>%
-        left_join(distinct(balance_paid_off_subset(), title, interest_saved_by_wiping), by  = "title") %>%
-        select(title, interest_saved_by_wiping)
+        filter(new_balance == 0 ) %>% #cannot filter by current month because I want to find the month it was paid off
+        group_by(title) %>%
+        mutate(month_paid = min(month)) %>%
+        ungroup() %>%
+        filter(month == input$Timeline) %>%
+        group_by(title) %>%
+        mutate(interest_saved = ifelse(title %in% balance_paid_off_subset()$title,     #did 2 separate mutates to avoid the amount of times I would do this if statement/matching
+                                       balance_paid_off_subset()$interest_saved_by_wiping[match(title, balance_paid_off_subset()$title)],
+                                       NA_real_)) %>%
+        ungroup() %>%
+        select(title, month_paid, interest_saved)
 
-
-    output[["focus_debt_df"]] <- renderDT({datatable(focus_df, options = list(pageLength = 10),
+    output[["focus_debt_df"]] <- renderDT({datatable(focus_df, options = list(pageLength = 5),
                                                      colnames = c("Debt Title", "Month Starting Balance", "Disposable Income Towards Debt","Minimum Payment", "Month New Balance")) %>%
                                                     formatCurrency(columns = c(2:5), currency = "$", interval = 3) })
 
-    output[["minimum_debt_df"]] <- renderDT({datatable(minimum_df, options = list(pageLength = 10),
+    output[["minimum_debt_df"]] <- renderDT({datatable(minimum_df, options = list(pageLength = 5),
                                           colnames = c("Debt Title", "Month Starting Balance","Minimum Payment","Interest Added This Month", "Month New Balance")) %>%
                                           formatCurrency(columns = c(2:5), currency = "$", interval = 3)})
 
-    output[["paid_debt_df"]] <- renderDT({datatable(paid_df, options = list(pageLength = 10),
-                                          colnames = c("Debt Title", "Interest Saved By Paying Faster")) %>%
-                                          formatCurrency(columns = c(2), currency = "$", interval = 3) })
+    output[["paid_debt_df"]] <- renderDT({datatable(paid_df, options = list(pageLength = 5),
+                                          colnames = c("Debt Title","Month Debt was Paid Off", "Interest Saved By Not Carrying a Balance Anymore")) %>%
+                                          formatCurrency(columns = c(3), currency = "$", interval = 3) })
 
     #This is code for the previous UI, might still use sections of it but want to hide it for now so it does not distract me.
     ###################
