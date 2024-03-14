@@ -635,12 +635,9 @@ server <- function(input, output, session) {
                 minimum_total_balance = sum(new_balance_min))
 
     updated_values <- c(disposable_value$disposable, total_debt_balance, total_interest_saved , minimum_wiped_sum )
-    default_values <- c(0, 0,  "TODO", "TODO")
-    # Updates ValueBoxes given month or places default values if the total debt balance is finished (unsure if I need the if statement now that the slider does not go higher than needed)
+    # Updates ValueBoxes given month information just calculated
       lapply(1:length(box_titles), function(i) {
         output[[box_titles[i]]] <- renderValueBox({createValueBox(descriptions[i], updated_values[i])})})
-
-
     #value boxes section end
 
     # Create a dataframe for the paid table displayed
@@ -663,9 +660,13 @@ server <- function(input, output, session) {
         group_by(title) %>%
         mutate(total_interest_saved = ifelse(title %in% min_simulation_saved()$title,     #did 2 separate mutates to avoid the amount of times I would do this if statement/matching
                                        min_simulation_saved()$interest_saved[match(title, min_simulation_saved()$title)],
-                                       NA_real_)) %>%
+                                       NA_real_),
+               months_saved = ifelse(title %in% min_simulation_saved()$title,
+                                    min_simulation_saved()$month_ended[match(title, min_simulation_saved()$title)],
+                                    NA_real_) - month_paid) %>%
         ungroup() %>%
-        select(title, month_paid, total_interest_saved)
+        select(title, month_paid, months_saved, total_interest_saved)
+        print(paid_df)
 
     output[["focus_debt_df"]] <- renderDT({datatable(focus_df, options = list(pageLength = 5),
                                                      colnames = c("Debt Title", "Month Starting Balance", "Disposable Income Towards Debt","Minimum Payment", "Month New Balance")) %>%
@@ -676,8 +677,8 @@ server <- function(input, output, session) {
                                           formatCurrency(columns = c(2:5), currency = "$", interval = 3)})
 
     output[["paid_debt_df"]] <- renderDT({datatable(paid_df, options = list(pageLength = 5),
-                                          colnames = c("Debt Title","Month Debt was Paid Off", "Interest Saved By Not Carrying a Balance Anymore")) %>%
-                                          formatCurrency(columns = c(3), currency = "$", interval = 3) })
+                                          colnames = c("Debt Title","Month Debt was Paid Off","Month's Saved By Paying Off Quicker", "Interest Saved By Not Carrying a Balance Anymore")) %>%
+                                          formatCurrency(columns = c(4), currency = "$", interval = 3) })
 
     print("$$$$$$$$$$$$$$$$$$$$$$$")
     print("This is disposable")
