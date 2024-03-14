@@ -637,16 +637,10 @@ server <- function(input, output, session) {
     updated_values <- c(disposable_value$disposable, total_debt_balance, total_interest_saved , minimum_wiped_sum )
     default_values <- c(0, 0,  "TODO", "TODO")
     # Updates ValueBoxes given month or places default values if the total debt balance is finished (unsure if I need the if statement now that the slider does not go higher than needed)
-    if(input$Timeline <= nrow(total_by_month)){
       lapply(1:length(box_titles), function(i) {
-        output[[box_titles[i]]] <- renderValueBox({createValueBox(descriptions[i], updated_values[i])})
-      })
-    }
-    else{
-      lapply(1:length(box_titles), function(i) {
-        output[[box_titles[i]]] <- renderValueBox({createValueBox(descriptions[i], default_values[i])})
-      })
-    }
+        output[[box_titles[i]]] <- renderValueBox({createValueBox(descriptions[i], updated_values[i])})})
+
+
     #value boxes section end
 
     # Create a dataframe for the paid table displayed
