@@ -507,8 +507,7 @@ server <- function(input, output, session) {
   debts <- reactiveVal(data.frame(title= character(), balance = numeric(), APR = numeric(), minimum = numeric()))
   timeline <- reactiveVal(data.frame(month = numeric() ,title = character(), original_balance = numeric(), added_interest = numeric(),new_balance = numeric(), extra = numeric(), minimum = numeric(),added_interest_min = numeric(), new_balance_min = numeric()))
   timeline_disposable <-reactiveVal(data.frame(month = numeric(),disposable = numeric()))
-  balance_paid_off_subset <- reactiveVal(data.frame(month = numeric() ,title = character(), original_balance = numeric(), added_interest = numeric(),new_balance = numeric(), extra = numeric(), added_interest_min = numeric(), new_balance_min = numeric(), minimum = numeric(), interest_saved_by_wiping = numeric()))
-
+  min_simulation_saved <- reactiveVal(data.frame(title = character(), saved_interest = numeric(), saved_months = numeric()))
   #storing given disposible income into disposable() reactive
   observeEvent(input$disposable_submit, {
     #format observed event result into our income format and bind it
@@ -538,12 +537,6 @@ server <- function(input, output, session) {
     dis_df <- disposable()
     debt_info <- debts()
 
-    print("This is disposable")
-    print(dis_df)
-
-    print("This is debt")
-    print(debt_info)
-
     #run payoff simulation
     simulation <- simulateProgress(debt_info,dis_df)
     #simulating paying minimum only
@@ -560,20 +553,13 @@ server <- function(input, output, session) {
     all_together <- merge(simulation$timeline, min_only_process_months, by = c("month", "title"))
     timeline(rbind(timeline(),all_together))
 
-    #sum all the interest would have acrued for the user if he only used the minimum payment
+    # subset of the minimum only simulation that goes beyond our projected disposable income simulation to find interest we saved and projected month each debt will be paid with only minimum
     subset_data <- min_only_all_months[min_only_all_months$month > max(timeline()$month), ]
-    by_debt_saved_interest <- subset_data %>%
+    new_data <- subset_data %>%
       group_by(title) %>%
-      summarise(interest_saved_by_wiping = sum(added_interest_min))
-
-    #Identify rows of months where debts have been paid off and get their minimums and add how much interest would have been charged after if the user had not paid it off.
-    #this data
-   timeline_after_balance_paid_off_statinfo <- timeline() %>% #replaced
-      filter(new_balance == 0) %>%
-      #left_join(debts() %>% select(title), by = "title") %>%
-      left_join(by_debt_saved_interest %>% select(title, interest_saved_by_wiping), by = "title")
-   balance_paid_off_subset(rbind(balance_paid_off_subset(), timeline_after_balance_paid_off_statinfo))
-   print(balance_paid_off_subset)
+      summarise(interest_saved_by_wiping = sum(added_interest_min), #use mutate rather than summarize if you still want the other columns but you won't given the UML now
+             month_ended = min(month[new_balance_min == 0])) # finds the minimum value in the month column where the row has new_balance_min =0
+    min_simulation_saved(rbind(min_simulation_saved(), tibble(new_data)))
 
     #slider will max out at the maximum amount of months of our simulation
     updateSliderInput(session, "Timeline", max = max(timeline()$month))
@@ -618,24 +604,29 @@ server <- function(input, output, session) {
 
     current_month_debt_info <- timeline() %>%
       filter(month == input$Timeline)
-    #Find total debt balance for x month on the slider
+
+    #(valueBox) Find total debt balance for x month on the slider
     total_debt_balance <- sum(current_month_debt_info$new_balance)
-    #Find total minimum payments of the paid off debts for x month on the slider
-    minimum_wiped_rows <- current_month_debt_info %>%
+
+    #Find rows of debts this month where full balance has been paid
+    paid_debts_rows <- current_month_debt_info %>%
       filter(new_balance == 0)
-    minimum_wiped_sum <- sum(minimum_wiped_rows$minimum)
+
+    #(valueBox) Sum all the minimum payments of debts that have a balance of 0 this month
+    minimum_wiped_sum <- sum(paid_debts_rows$minimum)
 
     # filter all months up to the x slider value and sum its interest while tackling simulation and the interest while paying minimum payments(interest_saved_progress)
-    months_progressed <- timeline() %>% #replaced
+    months_progressed <- timeline() %>%
       filter(month <= input$Timeline)
 
-    #get rows where balance is already paid off and get minimum and interest after payoff information
-    month_paid_off_info <- balance_paid_off_subset() %>%
-      filter(month == input$Timeline)
+    remaining_interest_rows <- paid_debts_rows %>%
+      mutate(interest_saved = ifelse(title %in% min_simulation_saved()$title,     #did 2 separate mutates to avoid the amount of times I would do this if statement/matching
+                                     min_simulation_saved()$interest_saved_by_wiping[match(title, min_simulation_saved()$title)],
+                                     NA_real_))
 
     #Calculate the interest saved, both while progressing and without all the extra months of interest
     interest_saved_progress <- sum(months_progressed$added_interest_min) - sum(months_progressed$added_interest)
-    interest_saved_after_payoff <- sum(month_paid_off_info$interest_saved_by_wiping)
+    interest_saved_after_payoff <- sum(remaining_interest_rows$interest_saved)
     total_interest_saved <- interest_saved_progress + interest_saved_after_payoff
 
     total_by_month <- timeline() %>% #replaced
@@ -676,8 +667,8 @@ server <- function(input, output, session) {
         ungroup() %>%
         filter(month == input$Timeline) %>%
         group_by(title) %>%
-        mutate(interest_saved = ifelse(title %in% balance_paid_off_subset()$title,     #did 2 separate mutates to avoid the amount of times I would do this if statement/matching
-                                       balance_paid_off_subset()$interest_saved_by_wiping[match(title, balance_paid_off_subset()$title)],
+        mutate(interest_saved = ifelse(title %in% min_simulation_saved()$title,     #did 2 separate mutates to avoid the amount of times I would do this if statement/matching
+                                       min_simulation_saved()$interest_saved_by_wiping[match(title, min_simulation_saved()$title)],
                                        NA_real_)) %>%
         ungroup() %>%
         select(title, month_paid, interest_saved)
@@ -695,14 +686,14 @@ server <- function(input, output, session) {
                                           formatCurrency(columns = c(3), currency = "$", interval = 3) })
 
     print("$$$$$$$$$$$$$$$$$$$$$$$")
+    print("This is disposable")
+    print(disposable())
+    print("This is debt")
+    print(debts())
     print("timeline")
     print(timeline())
     print("Timeline disposable")
     print(timeline_disposable())
-    print("balance_paid_off_subset")
-    print(balance_paid_off_subset())
-
-
     #This is code for the previous UI, might still use sections of it but want to hide it for now so it does not distract me.
     ###################
     total_bal_mon <- timeline() %>%
