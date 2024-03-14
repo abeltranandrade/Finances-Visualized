@@ -520,9 +520,10 @@ server <- function(input, output, session) {
 
   # storing individual debt information submitted by user into debts() reactive
   observeEvent(input$debt_submit, {
-    #verify each debt name is unique
+    #verify each debt name is unique and minimum payment is not 0
     debt_exists <- any(debts()$title == input$debt_title)
-    if (debt_exists) {showNotification("Please enter a unique name for this debt, please resubmit the infomation", type = "error")}
+    if (debt_exists) {showNotification("Please enter a unique name for this debt. Please resubmit the infomation", type = "error")}
+    else if(input$monthly_min <= 0){showNotification("Please enter a minimum payment larger than zero. Please resubmit the information", type = "error")}
     else{
     #format observed event result into our expense format and bind it, then clear the input boxes
     new_debt <- data.frame(title= input$debt_title, balance = input$remaining_balance, APR = input$apr, minimum = input$monthly_min)
@@ -731,19 +732,6 @@ server <- function(input, output, session) {
                yaxis = list(title = "Total Debt Balance"),
                title = "Total Debt Balance: Extra vs Minimum Payments")
     })
-    # print("$$$$$$$$$$$$$$$$$$$$$$$")
-    # print("This is disposable")
-    # print(disposable())
-    # print("This is debt")
-    # print(debts())
-    # print("timeline")
-    # print(timeline())
-    # print("Timeline disposable")
-    # print(timeline_disposable())
-    # print("min_simulation_saved")
-    # print(min_simulation_saved())
-    #This is code for the previous UI, might still use sections of it but want to hide it for now so it does not distract me.
-    ###################
   })
 
 }
