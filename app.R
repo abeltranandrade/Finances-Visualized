@@ -557,7 +557,7 @@ server <- function(input, output, session) {
     subset_data <- min_only_all_months[min_only_all_months$month > max(timeline()$month), ]
     new_data <- subset_data %>%
       group_by(title) %>%
-      summarise(interest_saved_by_wiping = sum(added_interest_min), #use mutate rather than summarize if you still want the other columns but you won't given the UML now
+      summarise(interest_saved = sum(added_interest_min), #use mutate rather than summarize if you still want the other columns but you won't given the UML now
              month_ended = min(month[new_balance_min == 0])) # finds the minimum value in the month column where the row has new_balance_min =0
     min_simulation_saved(rbind(min_simulation_saved(), tibble(new_data)))
 
@@ -621,7 +621,7 @@ server <- function(input, output, session) {
 
     remaining_interest_rows <- paid_debts_rows %>%
       mutate(interest_saved = ifelse(title %in% min_simulation_saved()$title,     #did 2 separate mutates to avoid the amount of times I would do this if statement/matching
-                                     min_simulation_saved()$interest_saved_by_wiping[match(title, min_simulation_saved()$title)],
+                                     min_simulation_saved()$interest_saved[match(title, min_simulation_saved()$title)],
                                      NA_real_))
 
     #Calculate the interest saved, both while progressing and without all the extra months of interest
@@ -667,11 +667,11 @@ server <- function(input, output, session) {
         ungroup() %>%
         filter(month == input$Timeline) %>%
         group_by(title) %>%
-        mutate(interest_saved = ifelse(title %in% min_simulation_saved()$title,     #did 2 separate mutates to avoid the amount of times I would do this if statement/matching
-                                       min_simulation_saved()$interest_saved_by_wiping[match(title, min_simulation_saved()$title)],
+        mutate(total_interest_saved = ifelse(title %in% min_simulation_saved()$title,     #did 2 separate mutates to avoid the amount of times I would do this if statement/matching
+                                       min_simulation_saved()$interest_saved[match(title, min_simulation_saved()$title)],
                                        NA_real_)) %>%
         ungroup() %>%
-        select(title, month_paid, interest_saved)
+        select(title, month_paid, total_interest_saved)
 
     output[["focus_debt_df"]] <- renderDT({datatable(focus_df, options = list(pageLength = 5),
                                                      colnames = c("Debt Title", "Month Starting Balance", "Disposable Income Towards Debt","Minimum Payment", "Month New Balance")) %>%
@@ -694,6 +694,8 @@ server <- function(input, output, session) {
     print(timeline())
     print("Timeline disposable")
     print(timeline_disposable())
+    print("min_simulation_saved")
+    print(min_simulation_saved())
     #This is code for the previous UI, might still use sections of it but want to hide it for now so it does not distract me.
     ###################
     total_bal_mon <- timeline() %>%
