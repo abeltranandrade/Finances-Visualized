@@ -421,7 +421,6 @@ ui <- dashboardPage(
             ),
             column(
               width = 8,
-              #plotlyOutput("lineChart")
               multipleValueBoxes(c("DispoBox", "TotalBox", "IntSavedBox", "MinimumFreedBox")),
               createTitleSection("Debts Being Focused", "#FFFF33", "These debts should be paid off rapidly using their original minimum payment and disposible income ", "black", box_height = "100px", padding = "3px", margin_bottom = "20px"),
               fluidRow(DTOutput("focus_debt_df")),
@@ -568,33 +567,6 @@ server <- function(input, output, session) {
     #slider will max out at the maximum amount of months of our simulation
     updateSliderInput(session, "Timeline", max = max(timeline()$month))
   })
-
-
-  # Render the plot
-  output$lineChart <- renderPlotly({
-    df <- timeline()
-
-    df  <- df %>%
-      group_by(month) %>%
-      summarise(new_balance = sum(new_balance))
-
-    plot_ly(df, x = ~month, y = ~new_balance, type = "bar") %>%
-      layout(title = "Bar Plot of new_balance by Month",
-             xaxis = list(title = "Month"),
-             yaxis = list(title = "new_balance"))
-    # Create the line chart using plot_ly
-  #   plot_ly(df, x = ~month, y = ~new_balance, type = "scatter", mode = "lines") %>%
-  #     layout(title = "Line Chart Faceted by Title",
-  #            xaxis = list(title = "Month"),
-  #            yaxis = list(title = "New Balance"))
-
-    #   plot_ly(df, x = ~month, y = ~new_balance, color = ~title, type = "scatter", mode = "lines") %>%
-    #     layout(title = "Line Chart Faceted by Title",
-    #            xaxis = list(title = "Month"),
-    #            yaxis = list(title = "New Balance"),
-    #            facet_col = ~title)
-  })
-
 
   descriptions <- c("Disposable Income", "Total Debt Balance", "Interest Saved", "Minimum Freed")
   box_titles <- c("DispoBox", "TotalBox", "IntSavedBox", "MinimumFreedBox")
