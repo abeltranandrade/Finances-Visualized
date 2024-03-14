@@ -428,7 +428,9 @@ ui <- dashboardPage(
               createTitleSection("Debts on Minimum Payments ", "#DC143C", "Pay the minimum payments on these debts and focus all your extra money on the ones above this month ", "white", box_height = "100px", padding = "3px", margin_bottom = "20px"),
               fluidRow(DTOutput("minimum_debt_df")),
               createTitleSection("Paid Off Debts! ", "#238823", "Congratulations! Now see how much money you saved on interest :) ", "white", box_height = "100px", padding = "3px", margin_bottom = "20px"),
-              fluidRow(DTOutput("paid_debt_df"))
+              fluidRow(DTOutput("paid_debt_df")),
+              plotlyOutput("interest_bar"),
+              plotlyOutput("cummulative_interest_bar")
               # DTOutput("monthly_total_tbl"),
               # plotlyOutput("bar_total"),
               # plotlyOutput("dis_vs_min_bar"),
@@ -666,7 +668,6 @@ server <- function(input, output, session) {
                                     NA_real_) - month_paid) %>%
         ungroup() %>%
         select(title, month_paid, months_saved, total_interest_saved)
-        print(paid_df)
 
     output[["focus_debt_df"]] <- renderDT({datatable(focus_df, options = list(pageLength = 5),
                                                      colnames = c("Debt Title", "Month Starting Balance", "Disposable Income Towards Debt","Minimum Payment", "Month New Balance")) %>%
@@ -680,17 +681,55 @@ server <- function(input, output, session) {
                                           colnames = c("Debt Title","Month Debt was Paid Off","Month's Saved By Paying Off Quicker", "Interest Saved By Not Carrying a Balance Anymore")) %>%
                                           formatCurrency(columns = c(4), currency = "$", interval = 3) })
 
-    print("$$$$$$$$$$$$$$$$$$$$$$$")
-    print("This is disposable")
-    print(disposable())
-    print("This is debt")
-    print(debts())
-    print("timeline")
-    print(timeline())
-    print("Timeline disposable")
-    print(timeline_disposable())
-    print("min_simulation_saved")
-    print(min_simulation_saved())
+    # Bar Graph of how much interest you'd pay a month
+    output[["interest_bar"]] <- renderPlotly({
+      plot_ly(months_progressed, x = ~month) %>%
+        add_trace(y = ~added_interest, name = "Tackling Debt Added Interest", type = "bar") %>%
+        add_trace(y = ~added_interest_min, name = "Paying Minimum Added Interest", type = "bar") %>%
+        layout(barmode = "group",
+               xaxis = list(title = "Month"),
+               yaxis = list(title = "Added Interest"),
+               title = "Added Interest by Month",
+               facet_row = ~added_interest)
+    })
+
+    total_added_interest <-  months_progressed %>%
+      arrange(month) %>%      #ensure month's are in a correct order for cumulative sum
+      mutate(cumulative_added_interest = cumsum(added_interest), #calculate the commulative sum by month
+             cumulative_minimum_added_interest = cumsum(added_interest_min))
+
+    interest_hover_text <- paste("Month: ", total_added_interest$month, "<br>",
+                        "Cumulative Added Interest: $", total_added_interest$cumulative_added_interest,"<br>",
+                        "Cumulative Added Interest With Minimum Payments: $", total_added_interest$cumulative_minimum_added_interest,"<br>",
+                        "Difference: $", total_added_interest$cumulative_minimum_added_interest - total_added_interest$cumulative_added_interest,"<br>")
+
+    #bar graph of total interest that will acrrue throughout the payment journey faceted by if you paid extra or just minimum payments
+    output[["cummulative_interest_bar"]] <- renderPlotly({
+      plot_ly(total_added_interest, x = ~month) %>%
+        add_trace(y = ~cumulative_added_interest, name = "Paying Extra", type = "bar", text = interest_hover_text, hoverinfo = "text", hoverlabel = list(font = list(size = 12))) %>%
+        add_trace(y = ~cumulative_minimum_added_interest, name = "Paying Minimum", type = "bar", text = interest_hover_text, hoverinfo = "text", hoverlabel = list(font = list(size = 12))) %>%
+        layout(barmode = "group",
+               xaxis = list(title = "Month"),
+               yaxis = list(title = "Total Cumulative Added Interest"),
+               title = "Total Interest Accumulation: Extra vs Minimum Payments",
+               facet_row = ~added_interest) %>%
+        add_trace(text = interest_hover_text,
+                  hoverinfo = "text",
+                  hoverlabel = list(font = list(size = 12)))
+    })
+
+
+    # print("$$$$$$$$$$$$$$$$$$$$$$$")
+    # print("This is disposable")
+    # print(disposable())
+    # print("This is debt")
+    # print(debts())
+    # print("timeline")
+    # print(timeline())
+    # print("Timeline disposable")
+    # print(timeline_disposable())
+    # print("min_simulation_saved")
+    # print(min_simulation_saved())
     #This is code for the previous UI, might still use sections of it but want to hide it for now so it does not distract me.
     ###################
     total_bal_mon <- timeline() %>%
