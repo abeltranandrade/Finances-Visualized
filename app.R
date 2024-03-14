@@ -632,11 +632,6 @@ server <- function(input, output, session) {
     interest_saved_after_payoff <- sum(remaining_interest_rows$interest_saved)
     total_interest_saved <- interest_saved_progress + interest_saved_after_payoff
 
-    total_by_month <- timeline() %>% #Could delete - part of the old graphs
-      group_by(month) %>%
-      summarise(active_total_balance = sum(new_balance),
-                minimum_total_balance = sum(new_balance_min))
-
     updated_values <- c(disposable_value$disposable, total_debt_balance, total_interest_saved , minimum_wiped_sum )
     # Updates ValueBoxes given month information just calculated
       lapply(1:length(box_titles), function(i) {
@@ -690,8 +685,7 @@ server <- function(input, output, session) {
         layout(barmode = "group",
                xaxis = list(title = "Month"),
                yaxis = list(title = "Added Interest"),
-               title = "Added Interest by Month",
-               facet_row = ~added_interest)
+               title = "Added Interest by Month")
     })
 
     total_added_interest <-  months_progressed %>%
@@ -737,8 +731,6 @@ server <- function(input, output, session) {
                yaxis = list(title = "Total Debt Balance"),
                title = "Total Debt Balance: Extra vs Minimum Payments")
     })
-    print("Months_progressed")
-    print(months_progressed)
     # print("$$$$$$$$$$$$$$$$$$$$$$$")
     # print("This is disposable")
     # print(disposable())
@@ -752,36 +744,6 @@ server <- function(input, output, session) {
     # print(min_simulation_saved())
     #This is code for the previous UI, might still use sections of it but want to hide it for now so it does not distract me.
     ###################
-    total_bal_mon <- timeline() %>%
-      filter(month == input$Timeline) %>%
-      select(title,original_balance,extra, new_balance) %>%
-      rename(Month_Starting_Balance = original_balance, Month_New_Balance = new_balance)
-
-    output[["monthly_total_tbl"]] <- renderDT({datatable(total_bal_mon, options = list(pageLength = 5), colnames = c("Debt Title", "Month Starting Balance", "Disposable Income Towards Debt", "Month New Balance"))})
-
-    output[["bar_total"]] <- renderPlotly({
-      plot_ly(total_by_month, x = ~month, y = ~active_total_balance, type = "bar", name = "Total Balance") %>%
-        layout(title = "Total Balance by Month", xaxis = list(title = "Month"), yaxis = list(title = "Total Balance"))
-    })
-
-    # Reshape the dataframe to tidy format to be able to create a faceted barplot with minimum simulation
-    tidy_total <- total_by_month %>%
-      tidyr::pivot_longer(
-        cols = c(active_total_balance, minimum_total_balance),
-        names_to = "simulation",
-        values_to = "value"
-      )
-
-    output[["dis_vs_min_bar"]] <-renderPlotly({
-      plot_ly(tidy_total, x = ~month, y = ~value, color = ~simulation, type = "bar") %>%
-        layout(
-          title = "Faceted Bar Plot",
-          xaxis = list(title = "Month"),
-          yaxis = list(title = "Value"),
-          barmode = "group",
-          facet_col = ~simulation
-        )
-    })
   })
 
 }
