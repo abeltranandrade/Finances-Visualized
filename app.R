@@ -430,10 +430,11 @@ ui <- dashboardPage(
               createTitleSection("Paid Off Debts! ", "#238823", "Congratulations! Now see how much money you saved on interest :) ", "white", box_height = "100px", padding = "3px", margin_bottom = "20px"),
               fluidRow(DTOutput("paid_debt_df")),
               plotlyOutput("interest_bar"),
-              plotlyOutput("cummulative_interest_bar")
+              plotlyOutput("cummulative_interest_bar"),
+              plotlyOutput("total_balance_bar"),
               # DTOutput("monthly_total_tbl"),
               # plotlyOutput("bar_total"),
-              # plotlyOutput("dis_vs_min_bar"),
+              plotlyOutput("dis_vs_min_bar"),
             )
           )
         )
@@ -631,7 +632,7 @@ server <- function(input, output, session) {
     interest_saved_after_payoff <- sum(remaining_interest_rows$interest_saved)
     total_interest_saved <- interest_saved_progress + interest_saved_after_payoff
 
-    total_by_month <- timeline() %>% #replaced
+    total_by_month <- timeline() %>% #Could delete - part of the old graphs
       group_by(month) %>%
       summarise(active_total_balance = sum(new_balance),
                 minimum_total_balance = sum(new_balance_min))
@@ -711,14 +712,33 @@ server <- function(input, output, session) {
         layout(barmode = "group",
                xaxis = list(title = "Month"),
                yaxis = list(title = "Total Cumulative Added Interest"),
-               title = "Total Interest Accumulation: Extra vs Minimum Payments",
-               facet_row = ~added_interest) %>%
-        add_trace(text = interest_hover_text,
-                  hoverinfo = "text",
-                  hoverlabel = list(font = list(size = 12)))
+               title = "Total Interest Accumulation: Extra vs Minimum Payments")
     })
 
+    balance_data <- months_progressed %>%
+      group_by(month) %>%
+      summarise(total_balance = sum(new_balance),
+                total_balance_min = sum(new_balance_min))
 
+    balance_hover_text <- paste("Month: ", balance_data$month, "<br>",
+                                 "Total Balance: $", balance_data$total_balance,"<br>",
+                                 "Total Balance Minimum: $", balance_data$total_balance_min,"<br>",
+                                 "Difference: $", balance_data$total_balance_min - balance_data$total_balance,"<br>")
+
+    #bar graph of total interest that will acrrue throughout the payment journey faceted by if you paid extra or just minimum payments
+    output[["total_balance_bar"]] <- renderPlotly({
+      plot_ly(balance_data, x = ~month) %>%
+        add_trace(y = ~total_balance, name = "Paying Extra", type = "bar", marker = list(color = "#3CB371"),
+                  text = balance_hover_text, hoverinfo = "text", hoverlabel = list(font = list(size = 12))) %>% # text = balance_hover_text, hoverinfo = "text", hoverlabel = list(font = list(size = 12))
+        add_trace(y = ~total_balance_min, name = "Paying Minimum", type = "bar", marker = list(color = "#DC143C"),
+                  text = balance_hover_text, hoverinfo = "text", hoverlabel = list(font = list(size = 12))) %>%
+        layout(barmode = "group",
+               xaxis = list(title = "Month"),
+               yaxis = list(title = "Total Debt Balance"),
+               title = "Total Debt Balance: Extra vs Minimum Payments")
+    })
+    print("Months_progressed")
+    print(months_progressed)
     # print("$$$$$$$$$$$$$$$$$$$$$$$")
     # print("This is disposable")
     # print(disposable())
