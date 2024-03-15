@@ -97,6 +97,14 @@ sumMinimums <- function(debt_df, index){
   return(x)
 }
 
+reset_values <- function() {
+  disposable(data.frame(amount = 0))
+  debts(data.frame(title = character(), balance = numeric(), APR = numeric(), minimum = numeric()))
+  timeline(data.frame(month = numeric(), title = character(), original_balance = numeric(), added_interest = numeric(), new_balance = numeric(), extra = numeric(), minimum = numeric(), added_interest_min = numeric(), new_balance_min = numeric()))
+  timeline_disposable(data.frame(month = numeric(), disposable = numeric()))
+  min_simulation_saved(data.frame(title = character(), saved_interest = numeric(), saved_months = numeric()))
+}
+
 #' Title Find Previous Balance
 #' @description Used to retreive a certain debt's previous month value. Typically used for the balance but made allow any column retrival
 #'
@@ -412,7 +420,8 @@ ui <- dashboardPage(
               actionButton("process_debts", "Get Debt Timeline"),
               conditionalPanel(
                 condition = "input.process_debts > 0",
-                sliderInput("Timeline", "Move Through The Months", min = 0, max = 20, value = 0)
+                sliderInput("Timeline", "Move Through The Months", min = 0, max = 20, value = 0),
+                actionButton("reset_button", "Reset The Plan")
               ),
               conditionalPanel(#(FOR LATER)
                 condition = "input.process_debts > 0",
@@ -422,18 +431,18 @@ ui <- dashboardPage(
             column(
               width = 8,
               multipleValueBoxes(c("DispoBox", "TotalBox", "IntSavedBox", "MinimumFreedBox")),
+              plotlyOutput("total_balance_bar"),
               createTitleSection("Debts Being Focused", "#FFFF33", "These debts should be paid off rapidly using their original minimum payment and disposible income ", "black", box_height = "100px", padding = "3px", margin_bottom = "20px"),
               fluidRow(DTOutput("focus_debt_df")),
               createTitleSection("Debts on Minimum Payments ", "#DC143C", "Pay the minimum payments on these debts and focus all your extra money on the ones above this month ", "white", box_height = "100px", padding = "3px", margin_bottom = "20px"),
               fluidRow(DTOutput("minimum_debt_df")),
               createTitleSection("Paid Off Debts! ", "#238823", "Congratulations! Now see how much money you saved on interest :) ", "white", box_height = "100px", padding = "3px", margin_bottom = "20px"),
               fluidRow(DTOutput("paid_debt_df")),
-              plotlyOutput("interest_bar"),
-              plotlyOutput("cummulative_interest_bar"),
-              plotlyOutput("total_balance_bar"),
+              #plotlyOutput("interest_bar"),
+              plotlyOutput("cummulative_interest_bar")
               # DTOutput("monthly_total_tbl"),
               # plotlyOutput("bar_total"),
-              plotlyOutput("dis_vs_min_bar"),
+              #plotlyOutput("dis_vs_min_bar"),
             )
           )
         )
@@ -705,6 +714,11 @@ server <- function(input, output, session) {
                title = "Total Debt Balance: Extra vs Minimum Payments")
     })
   })
+
+  observeEvent(input$reset_button, {
+    reset_values()
+  })
+
 
 }
 # Run the application
