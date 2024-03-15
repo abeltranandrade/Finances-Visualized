@@ -6,6 +6,8 @@ library(DT)
 library(shinyjs)
 library(dplyr)
 library(tidyr)
+library(profr)
+library(profvis)
 #' Create Input Unit
 #' @description This app needs to query different type of information to create its tools such as income, expenses, disposable income, debts etc they are all different data but all need a header title and a certain number of input fields of certain types. This function generalizes those "units". See wireframe for visual example.  Function to create input fields that contain a header, paragraph, and variable number of input elements.
 #'
@@ -431,18 +433,14 @@ ui <- dashboardPage(
             column(
               width = 8,
               multipleValueBoxes(c("DispoBox", "TotalBox", "IntSavedBox", "MinimumFreedBox")),
-              plotlyOutput("total_balance_bar"),
+              fluidRow(plotlyOutput("total_balance_bar")),
               createTitleSection("Debts Being Focused", "#FFFF33", "These debts should be paid off rapidly using their original minimum payment and disposible income ", "black", box_height = "100px", padding = "3px", margin_bottom = "20px"),
               fluidRow(DTOutput("focus_debt_df")),
               createTitleSection("Debts on Minimum Payments ", "#DC143C", "Pay the minimum payments on these debts and focus all your extra money on the ones above this month ", "white", box_height = "100px", padding = "3px", margin_bottom = "20px"),
               fluidRow(DTOutput("minimum_debt_df")),
               createTitleSection("Paid Off Debts! ", "#238823", "Congratulations! Now see how much money you saved on interest :) ", "white", box_height = "100px", padding = "3px", margin_bottom = "20px"),
               fluidRow(DTOutput("paid_debt_df")),
-              #plotlyOutput("interest_bar"),
-              plotlyOutput("cummulative_interest_bar")
-              # DTOutput("monthly_total_tbl"),
-              # plotlyOutput("bar_total"),
-              #plotlyOutput("dis_vs_min_bar"),
+              fluidRow(plotlyOutput("cummulative_interest_bar"))
             )
           )
         )
@@ -550,7 +548,10 @@ server <- function(input, output, session) {
     debt_info <- debts()
 
     #run payoff simulation
-    simulation <- simulateProgress(debt_info,dis_df)
+     #simulation_prof <- profvis({
+      simulation <- simulateProgress(debt_info,dis_df)
+    #})
+     #print(simulation_prof)
     #simulating paying minimum only
     min_only_all_months <- noChangeSimulation(debt_info)
 
@@ -673,21 +674,29 @@ server <- function(input, output, session) {
     total_added_interest <-  months_progressed %>%
       arrange(month) %>%      #ensure month's are in a correct order for cumulative sum
       mutate(cumulative_added_interest = cumsum(added_interest), #calculate the commulative sum by month
-             cumulative_minimum_added_interest = cumsum(added_interest_min))
+             cumulative_minimum_added_interest = cumsum(added_interest_min)) %>%
+      group_by(month) %>% # adding this because if not, it stacks bars for each debt and creates different tooltips. This way Im getting the max cumulative value for the month
+      summarise(max_cumulative_added_interest = max(round(cumulative_added_interest,2)),
+                max_cumulative_minimum_added_interest = max(round(cumulative_minimum_added_interest,2)))
 
     interest_hover_text <- paste("Month: ", total_added_interest$month, "<br>",
-                        "Cumulative Added Interest: $", total_added_interest$cumulative_added_interest,"<br>",
-                        "Cumulative Added Interest With Minimum Payments: $", total_added_interest$cumulative_minimum_added_interest,"<br>",
-                        "Difference: $", total_added_interest$cumulative_minimum_added_interest - total_added_interest$cumulative_added_interest,"<br>")
+                                 "Total Added Interest: $",format(total_added_interest$max_cumulative_added_interest, big.mark = ",", nsmall = 2),"<br>",
+                                 "Difference: $", format(round(total_added_interest$max_cumulative_added_interest - total_added_interest$max_cumulative_minimum_added_interest, 2), big.mark = ",", nsmall = 2),"<br>")
+
+    min_interest_hover_text <- paste("Month: ", total_added_interest$month, "<br>",
+                                 "Total Added Interest: $",format(total_added_interest$max_cumulative_minimum_added_interest, big.mark = ",", nsmall = 2),"<br>",
+                                 "Difference: $",format(round(total_added_interest$max_cumulative_minimum_added_interest - total_added_interest$max_cumulative_added_interest, 2), big.mark = ",", nsmall = 2),"<br>")
 
     #bar graph of total interest that will acrrue throughout the payment journey faceted by if you paid extra or just minimum payments
     output[["cummulative_interest_bar"]] <- renderPlotly({
       plot_ly(total_added_interest, x = ~month) %>%
-        add_trace(y = ~cumulative_added_interest, name = "Paying Extra", type = "bar", text = interest_hover_text, hoverinfo = "text", hoverlabel = list(font = list(size = 12))) %>%
-        add_trace(y = ~cumulative_minimum_added_interest, name = "Paying Minimum", type = "bar", text = interest_hover_text, hoverinfo = "text", hoverlabel = list(font = list(size = 12))) %>%
+        add_trace(y = ~max_cumulative_added_interest, name = "Paying Extra", type = "bar", marker = list(color = "#8fc44f", line = list(color = 'black', width = 1)),
+                  text = interest_hover_text, hoverinfo = "text", hoverlabel = list(font = list(size = 12))) %>%
+        add_trace(y = ~max_cumulative_minimum_added_interest, name = "Paying Minimum", type = "bar", marker = list(color = "#C44F8F", line = list(color = 'black', width = 1)), # , yellow : ffff5c ,  lime green: #8fc44f, green: 4fc484 pinkish #C44F8F
+                  text = min_interest_hover_text, hoverinfo = "text", hoverlabel = list(font = list(size = 12))) %>%
         layout(barmode = "group",
-               xaxis = list(title = "Month"),
-               yaxis = list(title = "Total Cumulative Added Interest"),
+               xaxis = list(title = "Month", rangemode = "nonnegative"),
+               yaxis = list(title = "Total Cumulative Added Interest", rangemode = "nonnegative"),
                title = "Total Interest Accumulation: Extra vs Minimum Payments")
     })
 
@@ -697,20 +706,23 @@ server <- function(input, output, session) {
                 total_balance_min = sum(new_balance_min))
 
     balance_hover_text <- paste("Month: ", balance_data$month, "<br>",
-                                 "Total Balance: $", balance_data$total_balance,"<br>",
-                                 "Total Balance Minimum: $", balance_data$total_balance_min,"<br>",
-                                 "Difference: $", balance_data$total_balance_min - balance_data$total_balance,"<br>")
+                                 "Total Balance: $", format(balance_data$total_balance,big.mark = ",",nsmall = 2),"<br>",
+                                 "Difference: $", format(round(balance_data$total_balance - balance_data$total_balance_min,2), big.mark = ",", nsmall = 2) ,"<br>")
+
+    min_balance_hover_text <- paste("Month: ", balance_data$month, "<br>",
+                                "Total Balance Paying Minimum: $", format(balance_data$total_balance_min,big.mark = ",",nsmall = 2),"<br>",
+                                "Difference: $", format(round(balance_data$total_balance_min - balance_data$total_balance, 2),big.mark = ",", nsmall = 2),"<br>")
 
     #bar graph of total interest that will acrrue throughout the payment journey faceted by if you paid extra or just minimum payments
     output[["total_balance_bar"]] <- renderPlotly({
       plot_ly(balance_data, x = ~month) %>%
-        add_trace(y = ~total_balance, name = "Paying Extra", type = "bar", marker = list(color = "#3CB371"),
-                  text = balance_hover_text, hoverinfo = "text", hoverlabel = list(font = list(size = 12))) %>% # text = balance_hover_text, hoverinfo = "text", hoverlabel = list(font = list(size = 12))
-        add_trace(y = ~total_balance_min, name = "Paying Minimum", type = "bar", marker = list(color = "#DC143C"),
+        add_trace(y = ~total_balance, name = "Paying Extra", type = "bar", marker = list(color = "#8fc44f", line = list(color = 'black', width = 1)),
                   text = balance_hover_text, hoverinfo = "text", hoverlabel = list(font = list(size = 12))) %>%
+        add_trace(y = ~total_balance_min, name = "Paying Minimum", type = "bar", marker = list(color = "#C44F8F", line = list(color = 'black', width = 1)),   #red d62451
+                  text = min_balance_hover_text, hoverinfo = "text", hoverlabel = list(font = list(size = 12))) %>%
         layout(barmode = "group",
-               xaxis = list(title = "Month"),
-               yaxis = list(title = "Total Debt Balance"),
+               xaxis = list(title = "Month",rangemode = "nonnegative"),
+               yaxis = list(title = "Total Debt Balance", rangemode = "nonnegative"),
                title = "Total Debt Balance: Extra vs Minimum Payments")
     })
   })
