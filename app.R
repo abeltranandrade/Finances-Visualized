@@ -434,11 +434,11 @@ ui <- dashboardPage(
               width = 8,
               multipleValueBoxes(c("DispoBox", "TotalBox", "IntSavedBox", "MinimumFreedBox")),
               fluidRow(plotlyOutput("total_balance_bar")),
-              createTitleSection("Debts Being Focused", "#FFFF33", "These debts should be paid off rapidly using their original minimum payment and disposible income ", "black", box_height = "100px", padding = "3px", margin_bottom = "20px"),
+              createTitleSection("Debts Being Focused", "#ffcc33", "These debts should be paid off rapidly using their original minimum payment and disposible income ", "black", box_height = "100px", padding = "3px", margin_bottom = "20px"),
               fluidRow(DTOutput("focus_debt_df")),
-              createTitleSection("Debts on Minimum Payments ", "#DC143C", "Pay the minimum payments on these debts and focus all your extra money on the ones above this month ", "white", box_height = "100px", padding = "3px", margin_bottom = "20px"),
+              createTitleSection("Debts on Minimum Payments ", "#cd4242", "Pay the minimum payments on these debts and focus all your extra money on the ones above this month ", "white", box_height = "100px", padding = "3px", margin_bottom = "20px"), # d15252
               fluidRow(DTOutput("minimum_debt_df")),
-              createTitleSection("Paid Off Debts! ", "#238823", "Congratulations! Now see how much money you saved on interest :) ", "white", box_height = "100px", padding = "3px", margin_bottom = "20px"),
+              createTitleSection("Paid Off Debts! ", "#5eba5e", "Congratulations! Now see how much money you saved on interest :) ", "white", box_height = "100px", padding = "3px", margin_bottom = "20px"), #74c374
               fluidRow(DTOutput("paid_debt_df")),
               fluidRow(plotlyOutput("cummulative_interest_bar"))
             )
