@@ -30,6 +30,13 @@ createInputUnit <- function(header, ..., button_label, button_id) {
   )
 }
 
+#' Update Input Unit
+#'@description This function resets the value of the input unit to become blank. Its main use is to reset the values after a debt or disposible income have been submitted
+#'
+#' @param session a Shiny server built in parameter that keeps track of the session is needed to be passed
+#' @param ... optional amounts of list with ID information for the UI item you will want to update
+#'
+#' @return
 updateInputUnit <- function(session, ...) {
            lapply(list(...), function(input_info) {
              switch(input_info$type,
@@ -39,16 +46,13 @@ updateInputUnit <- function(session, ...) {
            })
 }
 
-#' Title
+#' CreateValueBox
 #' @description Where you create how the value boxes look and where they display information. It can be expanded later to become more general and have different templates.
 #'
 #' @param title information detailing what the number above represents
 #' @param value The variable value we want to display to the user about their debt data throughout the months
 #'
-#' @return
-#' @export
-#'
-#' @examples
+#' @return Creates a single value box
 createValueBox <- function(title, value ) {
   #valueBox(value, subtitle = title, color = "light-blue")
   valueBox(
@@ -57,14 +61,12 @@ createValueBox <- function(title, value ) {
   )
 }
 
-#' Title
+#' MultipleValueBoxes
+#'@description Creates multiple value boxes when given their id titles
 #'
 #' @param id_titles a vector containing the chosen names for each value box unit you want to create in the ui
 #'
 #' @return create x amount of value boxes to the ui
-#' @export
-#'
-#' @examples
 multipleValueBoxes <- function(id_titles){
   fluidRow(
     lapply(id_titles, function(box_title){
@@ -73,6 +75,14 @@ multipleValueBoxes <- function(id_titles){
   )
 }
 
+#' Create Title Section
+#'@description Creates multiple value boxes when given their id titles
+#'
+#' @param heading_text Content you want to add to the H3 title
+#' @param box_content Content you want to add below the H3 title
+#' All other params are pretty self explanatory
+#'
+#'@return title section into the UI
 createTitleSection <- function(heading_text, background_color, box_content, font_color, padding, box_height, margin_bottom = "20px") {
        fluidRow(
          div(style = paste0("background-color: ", background_color, "; color: ", font_color, "; padding: ", padding, "; height: ", box_height, "; margin-bottom: ", margin_bottom, ";"),
@@ -83,12 +93,27 @@ createTitleSection <- function(heading_text, background_color, box_content, font
 
 }
 
+#' checkRequiredColumns
+#' @description Allows us to validate if the required columns exist in the dataframe we will use and gives a helpful error message if they dont. This helps us notice issues that could show up in many different error messages that would be less specific
+#'
+#' @param functionName name of the function wheree we are validating a dataset column
+#' @param dataset the dataset we want to validate
+#' @param required_names The required column names we will be using and must be in the dataset
+#'
+#' @return boolean value and/or error message if it catches an inconsistency
 checkRequiredColumns <- function(functionName, dataset, required_names) {
   if(!all(required_names %in% names(dataset))){
     functionId <- paste("In the function ", functionName)
     stop(paste(functionId, ", the dataset passed does not have one of the columns required"))
   }
 }
+
+#' SumMinimums
+#'
+#' @param debt_df Data frame with the collected debt data with the users that contains minimum
+#' @param index integer index that signifies the latest paid off debt
+#'
+#' @return a float number representating the total minimum payment total for the debts that have been paid off
 sumMinimums <- function(debt_df, index){
   if(index == 0){return(0)}
   # index the rows correctly given index (indexing breaks in case 1:1)
@@ -99,7 +124,11 @@ sumMinimums <- function(debt_df, index){
   return(x)
 }
 
-reset_values <- function() {
+
+#'resetValues
+#'
+#' @return resets the reactives and allows for the simulation to restart.
+resetValues <- function() {
   disposable(data.frame(amount = 0))
   debts(data.frame(title = character(), balance = numeric(), APR = numeric(), minimum = numeric()))
   timeline(data.frame(month = numeric(), title = character(), original_balance = numeric(), added_interest = numeric(), new_balance = numeric(), extra = numeric(), minimum = numeric(), added_interest_min = numeric(), new_balance_min = numeric()))
@@ -299,7 +328,6 @@ simulateProgress <- function(debt_df, disposable_df) {
   return(list(timeline = result_df, monthly_disposable = md_df))
 }
 
-
 #' No Change Simulation
 #'
 #' @description Creates a simulation of just paying minimum payments for the debt information given in the amount of month's they could be debt free using disposible income
@@ -456,8 +484,7 @@ ui <- dashboardPage(
 
 # Define server logic (not required for this example)
 server <- function(input, output, session) {
-
-  ####budget tab
+### budget tab
 
   # Reactive data frames to store income and expenses submitted #default income to 0 for pie chart error messaging
   income <- reactiveVal(data.frame(monthly_amount = 0))
@@ -510,7 +537,7 @@ server <- function(input, output, session) {
     datatable(sortedExpenses, options = list(pageLength = 10), class = 'cell-border stripe')
   })
 
-### next tab
+### timeline tab
 
   disposable <- reactiveVal(data.frame(amount =0))
   debts <- reactiveVal(data.frame(title= character(), balance = numeric(), APR = numeric(), minimum = numeric()))
@@ -728,7 +755,7 @@ server <- function(input, output, session) {
   })
 
   observeEvent(input$reset_button, {
-    reset_values()
+    resetValues()
   })
 
 
