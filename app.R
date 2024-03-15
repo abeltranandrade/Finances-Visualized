@@ -538,14 +538,15 @@ server <- function(input, output, session) {
   })
 
 ### timeline tab
-
   disposable <- reactiveVal(data.frame(amount =0))
   debts <- reactiveVal(data.frame(title= character(), balance = numeric(), APR = numeric(), minimum = numeric()))
   timeline <- reactiveVal(data.frame(month = numeric() ,title = character(), original_balance = numeric(), added_interest = numeric(),new_balance = numeric(), extra = numeric(), minimum = numeric(),added_interest_min = numeric(), new_balance_min = numeric()))
   timeline_disposable <-reactiveVal(data.frame(month = numeric(),disposable = numeric()))
   min_simulation_saved <- reactiveVal(data.frame(title = character(), saved_interest = numeric(), saved_months = numeric()))
+
   #storing given disposible income into disposable() reactive
   observeEvent(input$disposable_submit, {
+    if(input$disposable_income <= 0){showNotification("Please enter an amount larger than 0. Please resubmit the infomation", type = "error")}
     #format observed event result into our income format and bind it
     new_disposable <- data.frame(amount = input$disposable_income)
     disposable(rbind(disposable(), new_disposable))
@@ -569,10 +570,13 @@ server <- function(input, output, session) {
     }
   })
 
-  #actives the simulations given the information collected from the other above events
+  #actives the simulations given the information collected from the other above events and populates the reactives
   observeEvent(input$process_debts, {
     dis_df <- disposable()
     debt_info <- debts()
+    #stop executing if either are empty
+    if(nrow(dis_df) == 0 | nrow(debt_info) == 0){showNotification("Please make sure you submitted at least one debt and one disposible income. Please resubmit the infomation", type = "error")
+                                                return() } #exit early if dataset are empty
 
     #run payoff simulation
      #simulation_prof <- profvis({
@@ -608,6 +612,7 @@ server <- function(input, output, session) {
   descriptions <- c("Disposable Income", "Total Debt Balance", "Interest Saved", "Minimum Freed")
   box_titles <- c("DispoBox", "TotalBox", "IntSavedBox", "MinimumFreedBox")
 
+  # Activates all valueboxes, tables and visualizations users can toggle and play with
   observeEvent(input$Timeline,{
 
     #value boxes section start
@@ -757,8 +762,6 @@ server <- function(input, output, session) {
   observeEvent(input$reset_button, {
     resetValues()
   })
-
-
 }
 # Run the application
 shinyApp(ui, server)
