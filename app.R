@@ -52,7 +52,7 @@ updateInputUnit <- function(session, ...) {
 createValueBox <- function(title, value ) {
   #valueBox(value, subtitle = title, color = "light-blue")
   valueBox(
-    paste0("$", value),
+    paste0("$", format(value, big.mark = ",", nsmall = 2 )),
     title
   )
 }
