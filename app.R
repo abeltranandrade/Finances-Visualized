@@ -477,7 +477,7 @@ ui <- dashboardPage(
 # Define server logic (not required for this example)
 server <- function(input, output, session) {
 ### budget tab
-
+  #server_prof <- profvis({
   # Reactive data frames to store income and expenses submitted #default income to 0 for pie chart error messaging
   income <- reactiveVal(data.frame(monthly_amount = 0))
   expenses <- reactiveVal(data.frame(title = character(), price = numeric()))
@@ -571,10 +571,10 @@ server <- function(input, output, session) {
                                                 return() } #exit early if dataset are empty
 
     #run payoff simulation
-     #simulation_prof <- profvis({
+     simulation_prof <- profvis({
       simulation <- simulateProgress(debt_info,dis_df)
-    #})
-     #print(simulation_prof)
+    })
+    print(simulation_prof)
     #simulating paying minimum only
     min_only_all_months <- noChangeSimulation(debt_info)
 
@@ -629,6 +629,7 @@ server <- function(input, output, session) {
     months_progressed <- timeline() %>%
       filter(month <= input$Timeline)
 
+  # dataframe contains all debts that have been paid off in x month, and gets their interest saved by paying off the debt
     remaining_interest_rows <- paid_debts_rows %>%
       mutate(interest_saved = ifelse(title %in% min_simulation_saved()$title,     #did 2 separate mutates to avoid the amount of times I would do this if statement/matching
                                      min_simulation_saved()$interest_saved[match(title, min_simulation_saved()$title)],
@@ -769,7 +770,6 @@ server <- function(input, output, session) {
         mutate(total = ifelse(new_balance == 0 & original_balance == 0, 0, extra + minimum)) %>%
         select(month,title, original_balance, extra, minimum, total, new_balance) %>%
         arrange(month, desc(total))
-      print(df)
 
       saved <- (sum(timeline()$added_interest_min) - sum(timeline()$added_interest)) + sum(min_simulation_saved()$interest_saved)
 
@@ -788,8 +788,9 @@ server <- function(input, output, session) {
       }
     }
   )
+#})
+  #print(server_prof)
 }
-
 
 # Run the application
 shinyApp(ui, server)
