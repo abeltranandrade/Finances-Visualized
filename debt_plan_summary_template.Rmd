@@ -1,0 +1,34 @@
+---
+title: "Debt Plan Summary"
+date: "`r Sys.Date()`"
+output: pdf_document
+params:
+  total_months: 12
+  savings: 12435.78
+  order_of_debts: ["American Express", "Best Buy"]
+  dataset: NA
+---
+\textbf{Summary:} 
+
+Total Months: `r params$total_months`. 
+
+Tackling debt is saving future you `r format(params$savings, nsmall = 2,big.mark = ",")` dollars.
+
+\vspace{2em}
+
+\textbf{Order of Debt Tackled}
+\begin{itemize}
+  `r paste("\\item ", params$order_of_debts, collapse = "\n")`
+\end{itemize}
+
+\newpage
+
+## Monthly Plan Table
+```{r, results='asis', echo = FALSE}
+library(kableExtra)
+
+ knitr::kable(params$dataset, caption = "Your Monthly Plan") %>% 
+    kable_styling() %>%
+  row_spec(which(params$dataset$month %% 2 == 0),  background = "lightgray")
+
+```

@@ -390,12 +390,6 @@ noChangeSimulation <- function(debt_df){
   return(result_df)
 }
 
-# Function to generate colored rows based on month value (FOR LATER)
-color_rows <- function(x) {
-  ifelse(x %% 2 == 0, "background-color: white", "background-color: blue")
-}
-
-
 # Define UI
 ui <- dashboardPage(
   dashboardHeader(title = "Finances Visualized"),
@@ -760,6 +754,42 @@ server <- function(input, output, session) {
   observeEvent(input$reset_button, {
     resetValues()
   })
+
+  output$downloadPDF <- downloadHandler(
+    filename = function() {
+      paste("Debt-Plan", Sys.Date(), ".pdf", sep="")
+    },
+
+    content = function(file) {
+      # code below is from https://shiny.rstudio.com/articles/generating-reports.html
+      tempReport <- file.path(tempdir(), "report.Rmd")
+      file.copy("debt_plan_summary_template.Rmd", tempReport, overwrite = TRUE)
+
+      df <- tibble::tibble(timeline()) %>%
+        mutate(total = ifelse(new_balance == 0 & original_balance == 0, 0, extra + minimum)) %>%
+        select(month,title, original_balance, extra, minimum, total, new_balance) %>%
+        arrange(month, desc(total))
+      print(df)
+
+      saved <- (sum(timeline()$added_interest_min) - sum(timeline()$added_interest)) + sum(min_simulation_saved()$interest_saved)
+
+      if(nrow(df) >= 2 ){
+
+        params <- list(total_months = max(df$month),
+                       savings = saved,
+                       order_of_debts = debts()$title,
+                       dataset = df)
+
+
+        rmarkdown::render(tempReport, output_file = file,
+                          params = params,
+                          envir = new.env(parent = globalenv())
+        )
+      }
+    }
+  )
 }
+
+
 # Run the application
 shinyApp(ui, server)
