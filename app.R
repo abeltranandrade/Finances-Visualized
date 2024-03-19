@@ -106,6 +106,37 @@ checkRequiredColumns <- function(functionName, dataset, required_names) {
   }
 }
 
+#' checkColumnClasses
+#'@description validates column classes to catch unexpected casts
+#'
+#' @param df data frame we will validate
+#' @param expected_classes expected classes for the columns we require
+#' @param columns_required columns in the dataframw we want to check
+#' @param function_name Name of the function we are checking for debugging
+#'
+#' @return True if there is no issue, error if there is an error
+checkColumnClasses <- function(df, expected_classes, columns_required, function_name) {
+  # Check if columns_required is not empty
+  if (length(columns_required) == 0) {stop("Error: 'columns_required' parameter is empty")}
+  # Check if the lengths of columns_required and expected_classes match
+  if (length(columns_required) != length(expected_classes)) {stop(paste("Error: Length of 'columns_required' does not match length of 'expected_classes' ", "for function", function_name))}
+
+  # Iterate over columns_required and expected_classes simultaneously
+  for (i in seq_along(columns_required)) {
+    col <- columns_required[i]
+    expected_class <- expected_classes[i]
+
+    # Check if the column exists in the data frame
+    if (!col %in% names(df)) { stop(paste("Error: Column", col, "does not exist in the data frame", "for function", function_name))}
+
+    # Check if the actual class matches the expected class
+    if (class(df[[col]]) != expected_class) {stop(paste("Error: Column", col, "should be of class", expected_class, "for function", function_name))}
+  }
+
+  # If all checks pass, return TRUE
+  return(TRUE)
+}
+
 #' SumMinimums
 #'
 #' @param debt_df Data frame with the collected debt data with the users that contains minimum
@@ -146,10 +177,10 @@ resetValues <- function() {
 #' @export
 #'
 #' @examples
-findPreviousBalance <- function(month_index, title, result_df, column_retrival){
+findPreviousBalance <- function(month_index, current_title, result_df, column_retrival){
   checkRequiredColumns("findPreviousBalance", result_df, list("month", "title", column_retrival))
   #subset the row from the previous month with a certain title
-  subset_previous_entry <- result_df[result_df$month == month_index-1 & result_df$title == title , ]
+  subset_previous_entry <- result_df[result_df$month == month_index-1 & result_df$title == current_title , ]
   # assuming ID record returns just 1 bc there will always be only 1 entry for each debt for each month
   # balance will be the new balance of the located record
   balance <- subset_previous_entry[ ,column_retrival]
@@ -227,7 +258,8 @@ calculateInterest <- function(current_balance, APR){
 calculateTotalBalance <- function(current_month, result_df){
   checkRequiredColumns("calculateTotalBalance", result_df, list("month", "new_balance"))
   #subset all the rows where month equals current month
-  month_subset <- result_df[result_df$month == current_month, ]
+  month_subset <- result_df %>%
+    filter(month == current_month)
   #return the sum of the month's new balance column
   return(sum(month_subset$new_balance))
 }
@@ -273,7 +305,8 @@ simulateProgress <- function(debt_df, disposable_df) {
     month_index <- month_index + 1
     total_disposable <- disposable + min_clear
     disposable_available <- TRUE
-    md_df <- rbind(md_df,data.frame(month = month_index, disposable = total_disposable))
+    # make a new row for the disposable amount this month
+    md_df[nrow(md_df) + 1 , ] <- c(month_index, total_disposable)
 
     #create a row for each debt
     for(debt in 1:nrow(debt_df)){
@@ -283,41 +316,42 @@ simulateProgress <- function(debt_df, disposable_df) {
 
       #this debt has already been wiped fill in the row with zeroes and next
       if(current_balance == 0){
-        temp_row <- data.frame(
-          month = month_index,
-          title = debt_df[debt,]$title,
-          original_balance = current_balance,
-          added_interest = 0,
-          new_balance = 0,
-          extra = 0)
-        result_df <- rbind(result_df, temp_row)
+        # add all numeric values into the new row using a vector
+        result_df[nrow(result_df) + 1, ] <- c(
+          month_index,          #month
+          NA, #title
+          0, #original_balance
+          0, #added_interest
+          0, #new_balance
+          0) #extra
+        # insert the title into the newly created row (vectors are class homogeneous so adding the character class after)
+        result_df[nrow(result_df), "title"] <- debt_df$title[debt]
         next
       }
-
       #calculate decreasing this debt original balance for this month depending if there is disposable available this iteration
       decreasedBalance <- calculatePaidBalance(tackle = disposable_available, current_balance, total_disposable, debt_df[debt,]$minimum)
-
       #calculate interest using balance after og balance paid down
       dec_balance <- decreasedBalance$balance
       interest <- calculateInterest(dec_balance, debt_df[debt,]$APR)
 
-      temp_row <- data.frame(
-        month = month_index,
-        title = debt_df[debt,]$title,
-        original_balance = current_balance,
-        added_interest = round(interest, 2),
-        new_balance = round(dec_balance + interest,2),
-        extra = round(total_disposable - decreasedBalance$residual,2))
-
-      result_df <- rbind(result_df, temp_row)
+      # add all numeric values into the new row using a vector
+      result_df[nrow(result_df) + 1, ] <- c(
+                month_index,          #month
+                NA,  #title
+                current_balance, #original_balance
+                round(interest, 2), # added_interest
+                round(dec_balance + interest,2), #new_balance
+                round(total_disposable - decreasedBalance$residual,2)) #extra
+      # insert the title into the newly created row (vectors are class homogeneous so adding the character class after)
+      result_df[nrow(result_df), "title"] <- debt_df$title[debt] #debt_df[debt,]$title
 
       total_disposable <- decreasedBalance$residual
       #If the disposible income residual is 0, there is no more disposable income available this month for the next debts
       if(total_disposable == 0){disposable_available <- FALSE}
       #if a new debt wipe, add it to the counter (debtWiped can only be TRUE once per debt since og balance if statement wipe debt catch that will never let it get this far)
       if(decreasedBalance$debtWiped == TRUE){debt_index <- debt_index + 1}
-
     }
+
     #sum the minimum payments of debts that have been zeroed to help disposable income
     min_clear <- sumMinimums(debt_df, debt_index)
     #calculate the total debt balance left after this month
@@ -571,10 +605,10 @@ server <- function(input, output, session) {
                                                 return() } #exit early if dataset are empty
 
     #run payoff simulation
-     simulation_prof <- profvis({
+     #simulation_prof <- profvis({
       simulation <- simulateProgress(debt_info,dis_df)
-    })
-    print(simulation_prof)
+    #})
+    #print(simulation_prof)
     #simulating paying minimum only
     min_only_all_months <- noChangeSimulation(debt_info)
 
