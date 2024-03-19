@@ -154,7 +154,7 @@ sumMinimums <- function(debt_df, index){
 }
 
 
-#' Title Find Previous Balance
+#'Find Previous Balance
 #' @description Used to retreive a certain debt's previous month value. Typically used for the balance but made allow any column retrival
 #'
 #' @param month_index Current or consequent month for which we want to get the previous balance for
@@ -176,7 +176,7 @@ findPreviousBalance <- function(month_index, current_title, result_df, column_re
   return(balance)
 }
 
-#' Title Calculate Paid Balance
+#'Calculate Paid Balance
 #'
 #' @description Calculates the updated new balance for a certain debt after monthly payment depending if we will use extra money to tackle the debt or if we will just pay a minimum payment
 #'
@@ -218,7 +218,7 @@ calculatePaidBalance <- function(tackle, original_balance, disposable_income, mi
   }
 }
 
-#' Title Calculate Interest
+#' Calculate Interest
 #'@description Calculates the interest added to the balance given the debt ending balance and its calculated monthly rate.
 #'
 #' @param current_balance current ending balance for the specific debt for the month
@@ -233,7 +233,7 @@ calculateInterest <- function(current_balance, APR){
   return(current_balance*monthly_apr)
 }
 
-#' Title Calculate the Total Balance
+#' Calculate the Total Balance
 #'
 #' @description Calculates the total balance owed from all different debts
 #'
@@ -253,7 +253,7 @@ calculateTotalBalance <- function(current_month, result_df){
   return(sum(month_subset$new_balance))
 }
 
-#' Title Simulate Progress
+#' Simulate Progress
 #'@description Simulates the payoff journey of all the debts submitted through the UI if they were to use their disposable money each month to implement the snowball method
 #'
 #' @param debt_df Data frame containing all initial debt information such as debt title, balance, APR and minimum
@@ -815,7 +815,7 @@ server <- function(input, output, session) {
     content = function(file) {
       # code below is from https://shiny.rstudio.com/articles/generating-reports.html
       tempReport <- file.path(tempdir(), "report.Rmd")
-      file.copy("debt_plan_summary_template.Rmd", tempReport, overwrite = TRUE)
+      file.copy(file.path("..", "inst", "debt_plan_summary_template.Rmd"), tempReport, overwrite = TRUE)
 
       df <- tibble::tibble(timeline()) %>%
         mutate(total = ifelse(new_balance == 0 & original_balance == 0, 0, extra + minimum)) %>%

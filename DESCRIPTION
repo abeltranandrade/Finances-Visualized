@@ -1,0 +1,7 @@
+Package: FinancesVisualized
+Type: Package
+Title: Finances Visualized: An Interactive Tool
+Version: 0.1
+Author: Adriana Beltran Andrade
+Description: This is not intended to be a package, its a shiny Web App. I am using the R package structure to activate the roxygen documentation for my functions. If you want to know more about the app, go to README.md
+RoxygenNote: 7.2.3
