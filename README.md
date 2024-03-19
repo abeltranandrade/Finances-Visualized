@@ -39,12 +39,12 @@ The link for the hosted dashboard is:
 ### How to Install Using the Command Line:
 
 1. Have a version of R on your computer
-  - if you do not, go __________ to download
+  - if you do not, go [here](https://cran.r-project.org/) to download
 2. Clone this github repository onto your desired file path
-3. Navigate to the directory where your Shiny app's files are located using the cd command on a terminal
+3. Navigate to your Shiny app's directory using the `cd` command in the terminal.
 4. Once you're in the correct directory, start an R session by typing R and pressing Enter.
 5. Install the necessary shiny libraries 
-  - use command install.packages("package") for each package dependency listed in the dependency list
+  - use command install.packages("package") for each package dependency listed in the dependency list. There is a command you can run to install all the packages. 
   - This command will use CRAN the Comprehensive R Archive Network (CRAN). Follow any prompts or confirmations if necessary.
 6. Run the Shiny app
   - Execute the shiny app by using this code with your machine's specific path to the app.R directory shiny::runApp("path") 
@@ -71,26 +71,26 @@ The dependencies used for this app are shiny and shinydashboard, for web app fun
 ## Dashboard Functionality
 
 | Feature        | Location           | Function |
-| ------- |:-------:| -------------:|
+| ------- |:-------:| :------------|
 | Disposable Income Input Unit | Timeline | The amount the app will use to simulate the user paying off their debts. It will always use the last number inputed|
 | Debt Input Unit   | Timeline  | Input fields where users can enter information for each debt they owe |
 | Process Debts button |  Timeline  | Will trigger both paying off and minimum payment simulations and populate all reactives that fuel the dashboard. See UML diagram for more details on the reactives |
-| Month Slider |  Timeline after Debt Submissions | An interactive widget enabling users to navigate month-by-month, accessing all dashboard information and visualizations up to the selected month. |
+| Month Slider |  Interactive Timeline | An interactive widget enabling users to navigate month-by-month, accessing all dashboard information and visualizations up to the selected month. |
 | Total Debt visualization | Timeline     |  Interactive bar graph displaying the comparison between total debt owed when making minimum payments versus paying off debts more aggressively, up to the value set by the month slider |
 | Total Interest Accrued visualization | Timeline | An interactive bar graph compares the total interest paid when making minimum payments versus paying off debts more aggressively. The comparison is shown up to the value set by the month slider. |
 | Debt payment category tables | Timeline    | Each month, the user's debts will be categorized into three tables. These tables indicate whether additional payments should be made, minimum payments suffice, or if the debt has been completely paid off by that month |
-| Download PDF | Timeline after Debt Submissions |  User can download a pdf containing interest saved information and their month-to-month plan for each debt |
-| Reset Button | Timeline after Debt Submissions | resets the dashboard so the user can readd a new scenario |
+| Download PDF |  Interactive Timeline |  User can download a pdf containing interest saved information and their month-to-month plan for each debt |
+| Reset Button |  Interactive Timeline | resets the dashboard so the user can readd a new scenario |
 | Statistic value boxes | Timeline  | Value boxes providing users with key summarized information per month, including their disposable income, total debt, saved interest, and eliminated minimum payments |
 
 
 ## Data Sources and Assumptions
 
-All data comes from the user itself, from their disposible income to the debt information they submit. 
+- All data comes from the user itself, from their disposible income to the debt information they submit. 
 
-Given the uniqueness of ways each credit card or loan recalculates its minimum payment each month, I assumed paying the same minimum payment each month. As long as users do not make more purchases on those cards, as they pay the debt the minimum payments will be lower and lower, making the simulation a slight over estimation of the time it could take. 
+- Given the diverse methods used by each credit card or loan to adjust their minimum payments monthly, I've assumed a fixed minimum payment. As debt is paid down, minimum payments will decrease, leading to a slight overestimation of the simulation's duration if users refrain from additional purchases.
 
-In the current code, we also assume the user inputs the debts in a intentional order, deciding if they want to do the avalanche or snowball techniques. 
+- In the current code, we also assume the user inputs the debts in a intentional order, deciding if they want to do the avalanche or snowball techniques. 
 
 ## Repo Architecture
 
@@ -103,8 +103,3 @@ Where can you find the code/functions, documentation, profiling efficiency tests
 ## How to Provide Feedback
 
 Questions, bug reports, and feature requests can be submitted to this repo's [issue queue](https://github.com/LukasWallrich/citationProfileR).
-
-
-## Have Questions?
-
-Contact us at l.wallrich@bbk.ac.uk or lmikhelashvili@smith.edu.
