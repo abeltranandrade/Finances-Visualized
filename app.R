@@ -154,17 +154,6 @@ sumMinimums <- function(debt_df, index){
 }
 
 
-#'resetValues
-#'
-#' @return resets the reactives and allows for the simulation to restart.
-resetValues <- function() {
-  disposable(data.frame(amount = 0))
-  debts(data.frame(title = character(), balance = numeric(), APR = numeric(), minimum = numeric()))
-  timeline(data.frame(month = numeric(), title = character(), original_balance = numeric(), added_interest = numeric(), new_balance = numeric(), extra = numeric(), minimum = numeric(), added_interest_min = numeric(), new_balance_min = numeric()))
-  timeline_disposable(data.frame(month = numeric(), disposable = numeric()))
-  min_simulation_saved(data.frame(title = character(), saved_interest = numeric(), saved_months = numeric()))
-}
-
 #' Title Find Previous Balance
 #' @description Used to retreive a certain debt's previous month value. Typically used for the balance but made allow any column retrival
 #'
@@ -343,7 +332,7 @@ simulateProgress <- function(debt_df, disposable_df) {
                 round(dec_balance + interest,2), #new_balance
                 round(total_disposable - decreasedBalance$residual,2)) #extra
       # insert the title into the newly created row (vectors are class homogeneous so adding the character class after)
-      result_df[nrow(result_df), "title"] <- debt_df$title[debt] #debt_df[debt,]$title
+      result_df[nrow(result_df), "title"] <- debt_df$title[debt]
 
       total_disposable <- decreasedBalance$residual
       #If the disposible income residual is 0, there is no more disposable income available this month for the next debts
@@ -748,6 +737,15 @@ server <- function(input, output, session) {
 
     #bar graph of total interest that will acrrue throughout the payment journey faceted by if you paid extra or just minimum payments
     output[["cummulative_interest_bar"]] <- renderPlotly({
+      #if chart is reset then use default graph
+      if(nrow(timeline()) < 1){
+        plot_ly(timeline(), x = ~month) %>%
+                layout(barmode = "group",
+                 xaxis = list(title = "Month", rangemode = "nonnegative"),
+                 yaxis = list(title = "Total Cumulative Added Interest", rangemode = "nonnegative"),
+                 title = "Total Interest Accumulation: Extra vs Minimum Payments")
+      }
+      else{
       plot_ly(total_added_interest, x = ~month) %>%
         add_trace(y = ~max_cumulative_added_interest, name = "Paying Extra", type = "bar", marker = list(color = "#8fc44f", line = list(color = 'black', width = 1)),
                   text = interest_hover_text, hoverinfo = "text", hoverlabel = list(font = list(size = 12))) %>%
@@ -757,6 +755,7 @@ server <- function(input, output, session) {
                xaxis = list(title = "Month", rangemode = "nonnegative"),
                yaxis = list(title = "Total Cumulative Added Interest", rangemode = "nonnegative"),
                title = "Total Interest Accumulation: Extra vs Minimum Payments")
+      }
     })
 
     balance_data <- months_progressed %>%
@@ -774,6 +773,15 @@ server <- function(input, output, session) {
 
     #bar graph of total interest that will acrrue throughout the payment journey faceted by if you paid extra or just minimum payments
     output[["total_balance_bar"]] <- renderPlotly({
+      # if timeline() is reset, put the default empty graph
+      if(nrow(timeline()) < 1){
+        plot_ly(timeline(), x = ~month) %>%
+          layout(barmode = "group",
+                 xaxis = list(title = "Month",rangemode = "nonnegative"),
+                 yaxis = list(title = "Total Debt Balance", rangemode = "nonnegative"),
+                 title = "Total Debt Balance: Extra vs Minimum Payments")
+      }
+      else{
       plot_ly(balance_data, x = ~month) %>%
         add_trace(y = ~total_balance, name = "Paying Extra", type = "bar", marker = list(color = "#8fc44f", line = list(color = 'black', width = 1)),
                   text = balance_hover_text, hoverinfo = "text", hoverlabel = list(font = list(size = 12))) %>%
@@ -783,10 +791,19 @@ server <- function(input, output, session) {
                xaxis = list(title = "Month",rangemode = "nonnegative"),
                yaxis = list(title = "Total Debt Balance", rangemode = "nonnegative"),
                title = "Total Debt Balance: Extra vs Minimum Payments")
+      }
     })
   })
 
   observeEvent(input$reset_button, {
+
+    resetValues <- function() {
+      disposable(data.frame(amount = 0))
+      debts(data.frame(title = character(), balance = numeric(), APR = numeric(), minimum = numeric()))
+      timeline(data.frame(month = numeric(), title = character(), original_balance = numeric(), added_interest = numeric(), new_balance = numeric(), extra = numeric(), minimum = numeric(), added_interest_min = numeric(), new_balance_min = numeric()))
+      timeline_disposable(data.frame(month = numeric(), disposable = numeric()))
+      min_simulation_saved(data.frame(title = character(), saved_interest = numeric(), saved_months = numeric()))
+    }
     resetValues()
   })
 
