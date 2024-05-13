@@ -2,7 +2,7 @@
 % Please edit documentation in R/app.R
 \name{findPreviousBalance}
 \alias{findPreviousBalance}
-\title{Title Find Previous Balance}
+\title{Find Previous Balance}
 \usage{
 findPreviousBalance(month_index, current_title, result_df, column_retrival)
 }

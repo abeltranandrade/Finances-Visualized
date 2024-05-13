@@ -6,6 +6,7 @@ library(DT)
 library(dplyr)
 library(profr)
 library(profvis)
+library(roxygen2)
 #' Create Input Unit
 #' @description This app needs to query different type of information to create its tools such as income, expenses, disposable income, debts etc they are all different data but all need a header title and a certain number of input fields of certain types. This function generalizes those "units". See wireframe for visual example.  Function to create input fields that contain a header, paragraph, and variable number of input elements.
 #'
@@ -419,8 +420,7 @@ ui <- dashboardPage(
   dashboardSidebar(
     sidebarMenu(
       menuItem("Budget", tabName = "budget", icon = icon("usd")),
-      menuItem("Timeline", tabName = "timeline", icon = icon("line-chart")),
-      menuItem("Dates", tabName = "dates", icon = icon("calendar"))
+      menuItem("Timeline", tabName = "timeline", icon = icon("line-chart"))
     )
   ),
   dashboardBody(
@@ -487,11 +487,6 @@ ui <- dashboardPage(
             )
           )
         )
-      ),
-      # Dates tab (placeholder content)
-      tabItem(
-        tabName = "dates",
-        h2("Dates Content Goes Here")
       )
     )
   )

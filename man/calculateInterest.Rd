@@ -2,7 +2,7 @@
 % Please edit documentation in R/app.R
 \name{calculateInterest}
 \alias{calculateInterest}
-\title{Title Calculate Interest}
+\title{Calculate Interest}
 \usage{
 calculateInterest(current_balance, APR)
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/app.R
 \name{calculatePaidBalance}
 \alias{calculatePaidBalance}
-\title{Title Calculate Paid Balance}
+\title{Calculate Paid Balance}
 \usage{
 calculatePaidBalance(tackle, original_balance, disposable_income, minimum)
 }

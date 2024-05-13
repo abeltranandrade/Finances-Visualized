@@ -2,7 +2,7 @@
 % Please edit documentation in R/app.R
 \name{simulateProgress}
 \alias{simulateProgress}
-\title{Title Simulate Progress}
+\title{Simulate Progress}
 \usage{
 simulateProgress(debt_df, disposable_df)
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/app.R
 \name{calculateTotalBalance}
 \alias{calculateTotalBalance}
-\title{Title Calculate the Total Balance}
+\title{Calculate the Total Balance}
 \usage{
 calculateTotalBalance(current_month, result_df)
 }
