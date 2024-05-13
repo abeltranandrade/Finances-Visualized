@@ -459,7 +459,11 @@ ui <- dashboardPage(
               createInputUnit("Disposable", #Input Unit Income
                               list(label = "Disposable Income", id = "disposable_income", type = "numeric"),
                               button_label = "Submit Disposable Income", button_id = "disposable_submit",
+<<<<<<< HEAD
                               blurb = "Please share your monthly money available after necessary expenses.")
+=======
+                              blurb = "Please share your disposable income, your monthly money available after necessary expenses.")
+>>>>>>> 028cc6d43ae4fe30ab64e58f0d61e517ff2a1796
               ,
               createInputUnit("Debts", #Input Unit: Expenses
                               list(label = "Debt Name", id = "debt_title", type = "text"),
