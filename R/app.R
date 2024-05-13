@@ -16,9 +16,11 @@ library(roxygen2)
 #' @param button_id ID to call  the submitted information in this input field/s. Note this should be the last parameter
 #'
 #' @return creates and displays the input units components wanted in the UI of shiny
-createInputUnit <- function(header, ..., button_label, button_id) {
+createInputUnit <- function(header, ..., button_label, button_id, blurb) {
   fluidRow(h3(header),
-            p(paste("Enter your", tolower(header), "details:")),
+           div(style = "width: 250px;", # Set a specific width for the div containing the paragraph
+               p(blurb)
+           ),
             lapply(list(...), function(input_info) {
              switch(input_info$type,
                     numeric = numericInput(input_info$id, label = input_info$label, value = 0, min = 0),
@@ -433,12 +435,14 @@ ui <- dashboardPage(
             column(4, align = "center",
                    createInputUnit("Income", #Input Unit Income
                                     list(label = "Income Amount", id = "income_amount", type = "numeric"),
-                                   button_label = "Submit Income", button_id = "income_submit")
+                                   button_label = "Submit Income", button_id = "income_submit",
+                                   blurb = "Sumbit the income that is deposited into your account each month.")
                    ,
                    createInputUnit("Expenses", #Input Unit: Expenses
                          list(label = "Expense Title", id = "expense_title", type = "text"),
                          list(label = "Expense Price", id = "expense_price", type = "numeric"),
-                         button_label = "Submit Expense", button_id = "expense_submit")
+                         button_label = "Submit Expense", button_id = "expense_submit",
+                         blurb = "Submit information on each expense you expect every month. ")
             ),
             column(6, fluidRow(plotlyOutput("pie_chart"), style = "padding-bottom: 20px; padding-top: 30px"),   # Adjust the padding as needed
                    fluidRow(DTOutput("expenseTable")))
@@ -454,14 +458,16 @@ ui <- dashboardPage(
               width = 4,
               createInputUnit("Disposable", #Input Unit Income
                               list(label = "Disposable Income", id = "disposable_income", type = "numeric"),
-                              button_label = "Submit Disposable Income", button_id = "disposable_submit")
+                              button_label = "Submit Disposable Income", button_id = "disposable_submit",
+                              blurb = "Please share your monthly money available after necessary expenses.")
               ,
               createInputUnit("Debts", #Input Unit: Expenses
                               list(label = "Debt Name", id = "debt_title", type = "text"),
                               list(label = "Total Remaining Balance", id = "remaining_balance", type = "numeric"),
                               list(label = "APR", id = "apr", type = "numeric"),
                               list(label = "Monthly Minimum", id = "monthly_min", type = "numeric"),
-                              button_label = "Submit Debt Data", button_id = "debt_submit"),
+                              button_label = "Submit Debt Data", button_id = "debt_submit",
+                              blurb = "Please submit all your debts from highest APR to lowest APR." ),
               actionButton("process_debts", "Get Debt Timeline"),
               conditionalPanel(
                 condition = "input.process_debts > 0",
